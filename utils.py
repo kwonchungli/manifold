@@ -35,6 +35,38 @@ def save_images(X, save_path):
 
     imsave(save_path, img)
     
+def test_2d():
+    it, TRAIN_SIZE, TEST_SIZE = 0, 65536, 2000
+    train_data, test_data = [], []
+    train_target, test_target = [], []
+    while( it < TRAIN_SIZE + TEST_SIZE ):
+        x0, y0 = 1 * (np.random.randint(10, size=2) - 5)
+        r = np.random.normal(0, 0.1)
+        t = np.random.uniform(0, 6.3)
+        xy = np.matrix([x0 + (r**2)*math.cos(t), y0 + (r**2)*math.sin(t)])
+        label = 1
+        
+        it = it + 1
+        if( it < TRAIN_SIZE ):
+            train_data.append(xy)
+            train_target.append(label)
+        else:
+            test_data.append(xy)
+            test_target.append(label)
+    
+    train_data = np.vstack(train_data)
+    test_data = np.vstack(test_data)
+    
+    import matplotlib
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    plt.scatter(np.asarray(train_data[:, 0]).flatten(), np.asarray(train_data[:, 1]).flatten(), s=0.4, c='b', alpha=0.7)
+
+    fig.savefig('train.png')
+    plt.close()
+        
+    return train_data, train_target, test_data, test_target
+
 # Toy Testset
 def swiss_load():
     it, TRAIN_SIZE, TEST_SIZE = 0, 32768, 2000
@@ -43,7 +75,7 @@ def swiss_load():
     while( it < TRAIN_SIZE + TEST_SIZE ):
         t = np.random.uniform(0, 10)
         
-        xy = 0.1*np.matrix([t*math.cos(2*t), t*math.sin(2*t)])
+        xy = 0.1*np.matrix([t*math.cos(t), t*math.sin(t)])
         label = 1
         
         it = it + 1

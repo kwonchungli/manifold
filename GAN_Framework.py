@@ -13,10 +13,8 @@ ITERS = 100001 # How many generator iterations to train for
 CRITIC_ITERS = 50 # For WGAN and WGAN-GP, number of critic iters per gen iter
 PROJ_ITER = 2000
 
-class WGAN(object):
+class GAN(object):
     def __init__(self):
-        self.LAMBDA = .1 # Gradient penalty lambda hyperparameter
-        
         self.z_in = tf.placeholder(tf.float32, shape=[None, self.get_latent_dim()], name='latent_variable')
         self.data = tf.placeholder(tf.float32, shape=[None, self.get_image_dim()])
         
@@ -39,6 +37,133 @@ class WGAN(object):
         self.saver.restore(sess, ckpt.model_checkpoint_path)
         
     # Defining loss - different from gan to gan
+    def define_loss(self):
+        raise NotImplementedError
+    def train(self, session):
+        raise NotImplementedError
+        
+    def noise_gen(self, noise_size):
+        return np.random.normal(size=noise_size).astype('float32')
+        
+    def test_generate(self, sess, n_samples = 128, filename='samples.png'):
+        pass
+
+    def get_image_dim(self): 
+        return 0
+    
+    def get_latent_dim(self): 
+        return 0
+    
+    
+    #
+    #
+    #
+    #
+    #
+    #
+    # Default Generator - Decoder
+    def build_generator(self, z = None, reuse = False):
+        n_hidden = 256
+        
+        with tf.variable_scope("Generator", reuse=reuse):
+            # initializers
+            w_init = tf.contrib.layers.variance_scaling_initializer()
+            b_init = tf.constant_initializer(0.01)
+
+            # 1st hidden layer
+            w0 = tf.get_variable('w0', [z.get_shape()[1], n_hidden], initializer=w_init)
+            b0 = tf.get_variable('b0', [n_hidden], initializer=b_init)
+            h0 = tf.matmul(z, w0) + b0
+            h0 = tf.nn.relu(h0)
+
+            # 2nd hidden layer
+            w1 = tf.get_variable('w1', [h0.get_shape()[1], n_hidden], initializer=w_init)
+            b1 = tf.get_variable('b1', [n_hidden], initializer=b_init)
+            h1 = tf.matmul(h0, w1) + b1
+            h1 = tf.nn.relu(h1)
+
+            # output layer-mean
+            l2 = tf.layers.dense(h1, n_hidden)
+            l2 = tf.nn.relu(l2)
+            
+            y = tf.layers.dense(l2, self.get_image_dim())
+            
+        return y
+
+    def build_discriminator(self, inputs, reuse = False):
+        with tf.variable_scope("Discriminator", reuse=reuse):
+            # Hidden fully connected layer with 256 neurons
+            layer_1 = tf.layers.dense(inputs, 256)
+            layer_1 = tf.nn.relu(layer_1)
+            
+            layer_2 = tf.layers.dense(layer_1, 256)
+            layer_2 = tf.nn.relu(layer_2)
+            
+            layer_3 = tf.layers.dense(layer_2, 256)
+            layer_3 = tf.nn.relu(layer_3)
+            
+            layer_4 = tf.layers.dense(layer_3, 256)
+            layer_4 = tf.nn.relu(layer_4)
+            
+            output = tf.layers.dense(layer_4, 1)
+        
+        return tf.reshape(output, [-1])
+    
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    # Deferred to sub-classes
+    def define_proj(self):
+        self.test_x = tf.placeholder(tf.float32, shape=[self.BATCH_SIZE, self.OUTPUT_DIM])
+        self.z_hat = tf.get_variable('z_hat', shape=[self.BATCH_SIZE, self.INPUT_DIM], dtype=tf.float32)
+        self.out = self.build_generator(self.z_hat, True)
+        
+        self.proj_loss = tf.reduce_mean(tf.square(self.out - self.test_x))
+        self.proj_step = tf.Variable(0)
+        learning_rate = tf.train.exponential_decay(
+                1e-2,  # Base learning rate.
+                self.proj_step * self.CLASSIFIER_BATCH_SIZE,  # Current index into the dataset.
+                PROJ_ITER,  # Decay step.
+                0.95,  # Decay rate.
+                staircase=True)
+        
+        self.proj_op = tf.train.AdamOptimizer(
+            learning_rate=learning_rate, 
+            beta1=0.5,
+            beta2=0.9
+        ).minimize(self.proj_loss, var_list=self.z_hat, global_step=self.proj_step)
+
+    def find_proj(self, sess, batch_x):
+        thresh, cost, iterat = 0.005, 1.0, 0
+        while( cost > thresh and iterat < 10):
+            sess.run(self.proj_step.assign(0))
+            sess.run(self.z_hat.assign(np.random.uniform(-1, 1, size=self.z_hat.shape.as_list())))
+            for i in range(PROJ_ITER):
+                _, cost = sess.run([self.proj_op, self.proj_loss], feed_dict={self.test_x:batch_x})
+                if( i % 500 == 0 ):
+                    print ('Projection Cost is : ', cost)
+                    
+            iterat = iterat + 1
+            thresh = thresh + 0.001
+        
+            lib.save_images.save_images(
+                self.out.eval().reshape((self.CLASSIFIER_BATCH_SIZE, 28, 28)), 'test_proj.png'
+            )
+        D = sess.run(self.grad)
+        return D
+        
+        
+""" WGAN Implementation Start """        
+class WGAN(GAN):
+    def __init__(self):
+        self.LAMBDA = .1 # Gradient penalty lambda hyperparameter
+        super(WGAN, self).__init__()
+        
     def define_loss(self):
         fake_data = self.Generator
         disc_fake = self.Discriminator_fake
@@ -128,67 +253,4 @@ class WGAN(object):
                 print 'Saving model...'
                 self.saver.save(session, self.MODEL_DIRECTORY+'checkpoint-'+str(iteration))
                 self.saver.export_meta_graph(self.MODEL_DIRECTORY+'checkpoint-'+str(iteration)+'.meta')
-
-    def noise_gen(self, noise_size):
-        return np.random.normal(size=noise_size).astype('float32')
-        
-    def test_generate(self, sess, n_samples = 128, filename='samples.png'):
-        pass
-
-    def get_image_dim(self): 
-        return 0
-    
-    def get_latent_dim(self): 
-        return 0
-    
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    # Deferred to sub-classes
-    def define_proj(self):
-        self.test_x = tf.placeholder(tf.float32, shape=[self.BATCH_SIZE, self.OUTPUT_DIM])
-        self.z_hat = tf.get_variable('z_hat', shape=[self.BATCH_SIZE, self.INPUT_DIM], dtype=tf.float32)
-        self.out = self.build_generator(self.z_hat, True)
-        
-        self.proj_loss = tf.reduce_mean(tf.square(self.out - self.test_x))
-        
-        self.proj_step = tf.Variable(0)
-        learning_rate = tf.train.exponential_decay(
-                1e-2,  # Base learning rate.
-                self.proj_step * self.CLASSIFIER_BATCH_SIZE,  # Current index into the dataset.
-                PROJ_ITER,  # Decay step.
-                0.95,  # Decay rate.
-                staircase=True)
-        
-        self.proj_op = tf.train.AdamOptimizer(
-            learning_rate=learning_rate, 
-            beta1=0.5,
-            beta2=0.9
-        ).minimize(self.proj_loss, var_list=self.z_hat, global_step=self.proj_step)
-        
-        # Takes about 30 sec
-        self.grad = jacobian(self.out, self.z_hat)
-
-    def find_proj(self, sess, batch_x):
-        thresh, cost, iterat = 0.005, 1.0, 0
-        while( cost > thresh ):
-            sess.run(self.proj_step.assign(0))
-            sess.run(self.z_hat.assign(np.random.uniform(-1, 1, size=self.z_hat.shape.as_list())))
-            for i in range(PROJ_ITER):
-                _, cost = sess.run([self.proj_op, self.proj_loss], feed_dict={self.test_x:batch_x})
-                if( i % 500 == 0 ):
-                    print ('Projection Cost is : ', cost)
-                    
-            thresh = thresh + 0.001
-        
-            lib.save_images.save_images(
-            self.out.eval().reshape((self.CLASSIFIER_BATCH_SIZE, 28, 28)), 'test_proj.png'
-        )
-        D = sess.run(self.grad)
-        return D
         

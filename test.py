@@ -4,11 +4,14 @@ from __future__ import print_function
 
 import numpy as np
 import os
-from GAN_Network import WGAN_Swiss
+from GAN_Network import WGAN_test, WGAN_Swiss
+from WAE_Network import WAE
+from VAE import VAE
 import tensorflow as tf
 
 if __name__ == '__main__':
-    myGAN = WGAN_Swiss()
+    #myGAN = WGAN_test()
+    myVAE = WAE()
     
     init = tf.global_variables_initializer()
     config = tf.ConfigProto()
@@ -18,6 +21,8 @@ if __name__ == '__main__':
         sess.run(init)
 
         #myGAN.restore_session(sess)
-        myGAN.train(sess)
+        #myGAN.train(sess)
+        
+        myVAE.train(sess)
         
         
