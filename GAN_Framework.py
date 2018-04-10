@@ -8,9 +8,9 @@ import sklearn.datasets
 import tensorflow as tf
 import utils
 
-BATCH_SIZE = 1024 # Batch size
+BATCH_SIZE = 2048 # Batch size
 ITERS = 100001 # How many generator iterations to train for 
-CRITIC_ITERS = 50 # For WGAN and WGAN-GP, number of critic iters per gen iter
+CRITIC_ITERS = 10 # For WGAN and WGAN-GP, number of critic iters per gen iter
 PROJ_ITER = 2000
 
 class GAN(object):
@@ -74,17 +74,17 @@ class GAN(object):
             w0 = tf.get_variable('w0', [z.get_shape()[1], n_hidden], initializer=w_init)
             b0 = tf.get_variable('b0', [n_hidden], initializer=b_init)
             h0 = tf.matmul(z, w0) + b0
-            h0 = tf.nn.relu(h0)
+            h0 = tf.nn.leaky_relu(h0)
 
             # 2nd hidden layer
             w1 = tf.get_variable('w1', [h0.get_shape()[1], n_hidden], initializer=w_init)
             b1 = tf.get_variable('b1', [n_hidden], initializer=b_init)
             h1 = tf.matmul(h0, w1) + b1
-            h1 = tf.nn.relu(h1)
+            h1 = tf.nn.leaky_relu(h1)
 
             # output layer-mean
             l2 = tf.layers.dense(h1, n_hidden)
-            l2 = tf.nn.relu(l2)
+            l2 = tf.nn.leaky_relu(l2)
             
             y = tf.layers.dense(l2, self.get_image_dim())
             
@@ -216,6 +216,7 @@ class WGAN(GAN):
     def train(self, session):
         # Dataset iterator
         train_gen, _, _ = utils.load_dataset(BATCH_SIZE, self.data_func)
+        train_gen = utils.batch_gen(train_gen)
         
         # cache variables
         disc_cost, gen_train_op, disc_train_op = self.disc_cost, self.gen_train_op, self.disc_train_op
@@ -230,7 +231,7 @@ class WGAN(GAN):
             # Run discriminator
             disc_iters = CRITIC_ITERS
             for i in range(disc_iters):
-                _data, label = next(utils.batch_gen(train_gen))
+                _data, label = next(train_gen)
                 _disc_cost, _ = session.run(
                     [disc_cost, disc_train_op],
                     feed_dict={

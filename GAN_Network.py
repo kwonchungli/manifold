@@ -16,7 +16,7 @@ class WGAN_test(WGAN):
     def noise_gen(self, noise_size):
         return np.random.normal(size=noise_size).astype('float32')
     
-    def test_generate(self, sess, n_samples = 4096, filename='samples.png'):
+    def test_generate(self, sess, n_samples = 64000, filename='samples.png'):
         fig, ax = plt.subplots()
         
         noises = self.noise_gen((n_samples,self.get_latent_dim()))
@@ -53,7 +53,7 @@ class WGAN_Swiss(WGAN):
         return np.random.normal(size=noise_size).astype('float32')
         #return np.random.uniform(0, 10, size=noise_size).astype('float32')
     
-    def test_generate(self, sess, n_samples = 4096, filename='samples.png'):
+    def test_generate(self, sess, n_samples = 64000, filename='samples.png'):
         fig = plt.figure()
         
         noises = self.noise_gen((n_samples,self.get_latent_dim()))
@@ -61,12 +61,12 @@ class WGAN_Swiss(WGAN):
                                  feed_dict={self.z_in: noises})
         
         plt.scatter(gen_points[:,0], gen_points[:,1], s=0.4, c='b', alpha=0.7)
-        
+        """
         for i in range(10):
             t = i + np.linspace(0, 0.5, num=500)
             x, y = 0.1*t*np.cos(t), 0.1*t*np.sin(t)
             plt.scatter(x, y, c='r', s=0.1, alpha=0.5)
-        
+        """
         fig.savefig(filename)
         plt.close()
         

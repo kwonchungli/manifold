@@ -10,8 +10,8 @@ from VAE import VAE
 import tensorflow as tf
 
 if __name__ == '__main__':
-    #myGAN = WGAN_test()
-    myVAE = WAE()
+    myGAN = WGAN_Swiss()
+    myVAE = WAE(myGAN)
     
     init = tf.global_variables_initializer()
     config = tf.ConfigProto()
@@ -20,7 +20,7 @@ if __name__ == '__main__':
     with tf.Session(config = config) as sess:
         sess.run(init)
 
-        #myGAN.restore_session(sess)
+        myGAN.restore_session(sess)
         #myGAN.train(sess)
         
         myVAE.train(sess)

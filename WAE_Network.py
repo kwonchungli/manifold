@@ -4,8 +4,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
-BATCH_SIZE = 128 # Batch size
-ITERS = 100001 # How many generator iterations to train for 
+BATCH_SIZE = 1024 # Batch size
+ITERS = 500001 # How many generator iterations to train for 
 
 
 class AE(object):
@@ -26,7 +26,7 @@ class AE(object):
     def get_image_dim(self):
         return 2
     def get_latent_dim(self):
-        return 2
+        return 1
 
     # Restore
     def restore_session(self, sess, checkpoint_dir = None):
@@ -48,12 +48,16 @@ class AE(object):
             layer_3 = tf.layers.dense(layer_2, 256)
             layer_3 = tf.nn.relu(layer_3)
             
-            layer_4 = tf.layers.dense(layer_3, 256)
-            layer_4 = tf.nn.relu(layer_4)
-            
-            y = tf.layers.dense(layer_4, self.get_latent_dim())
+            gaussian_params = tf.layers.dense(layer_3, 2*self.get_latent_dim())
 
-        return y
+            # The mean parameter is unconstrained
+            mean = gaussian_params[:, :self.get_latent_dim()]
+            # The standard deviation must be positive. Parametrize with a softplus and
+            # add a small epsilon for numerical stability
+            stddev = 1e-6 + tf.nn.softplus(gaussian_params[:, self.get_latent_dim():])
+            z = mean + stddev * tf.random_normal(tf.shape(mean), 0, 1, dtype=tf.float32)
+            
+        return mean, stddev, z
 
     # Bernoulli MLP as decoder
     def bernoulli_MLP_decoder(self, z, n_hidden=256, reuse=False):
@@ -78,8 +82,7 @@ class AE(object):
     # Gateway
     def autoencoder(self, x_hat, x, n_hidden=256, reuse=False):
         # encoding
-        z = self.gaussian_MLP_encoder(x_hat, n_hidden, reuse) 
-        #z = z + 0.1 * tf.random_normal(tf.shape(z), 0, 1, dtype=tf.float32)
+        mu, sigma, z = self.gaussian_MLP_encoder(x_hat, n_hidden, reuse) 
 
         # decoding
         y = self.bernoulli_MLP_decoder(z, n_hidden, reuse)
@@ -88,7 +91,7 @@ class AE(object):
     
     def define_loss(self):
         loss = tf.squared_difference(self.rx, self.x)
-        train_op = tf.train.AdamOptimizer(1e-4).minimize(loss)
+        train_op = tf.train.AdamOptimizer(1e-3).minimize(loss)
         
         return loss, train_op
         
@@ -96,7 +99,7 @@ class AE(object):
         y = self.bernoulli_MLP_decoder(z, n_hidden, reuse=True)
         return y
     
-    def test_generate(self, sess, gen, n_samples = 8192, filename='samples.png'):
+    def test_generate(self, sess, train_gen, n_samples = 64000, filename='samples.png'):
         fig, ax = plt.subplots()
         
         noises = self.noise_gen((n_samples, self.get_latent_dim()))
@@ -105,12 +108,12 @@ class AE(object):
         
         plt.scatter(gen_points[:,0], gen_points[:,1], s=0.4, c='b', alpha=0.4)
         
-        for i in range(500):
-            batch, _ = next(utils.batch_gen(gen))
+        for i in range(10):
+            batch, _ = next(train_gen)
             rx, res = sess.run([self.rx, self.z], feed_dict={self.x_hat: batch, self.x: batch})
-            plt.scatter(res[:,0], res[:,1], s=5, c='r', alpha=0.01)
-        
-        plt.scatter(rx[:,0], rx[:,1], s=5, c='g', alpha=1)
+            #plt.scatter(batch[:,0], batch[:,1], s=5, c='r', alpha=0.01)
+            #plt.scatter(res[:,0], 0, s=5, c='r', alpha=0.01)
+            plt.scatter(rx[:,0], rx[:,1], s=5, c='g', alpha=1)
         
         fig.savefig(filename)
         plt.close()
@@ -139,9 +142,10 @@ from GAN_Framework import GAN
 
 class GAN_WAE(GAN):
     def __init__(self, encoder):
+        self.LAMBDA = .1
         self.data = tf.placeholder(tf.float32, shape=[None, self.get_image_dim()], name='data')
-        self.qz = encoder(self.data, reuse=True)
-        self.pz = tf.placeholder(tf.float32, shape=[None, self.get_image_dim()], name='prior')
+        _, _, self.qz = encoder(self.data, reuse=True)
+        self.pz = tf.placeholder(tf.float32, shape=[None, self.get_latent_dim()], name='prior')
         
         self.Discriminator_fake = self.build_discriminator(self.qz)
         self.Discriminator_real = self.build_discriminator(self.pz, True)
@@ -165,8 +169,6 @@ class GAN_WAE(GAN):
             layer_4 = tf.nn.relu(layer_4)
             
             output = tf.layers.dense(layer_4, 1)
-            output = tf.sigmoid(output)
-            output = tf.clip_by_value(output, 1e-4, 1 - 1e-4)
             
         return tf.reshape(output, [-1])
     
@@ -174,8 +176,21 @@ class GAN_WAE(GAN):
         disc_fake = self.Discriminator_fake
         disc_real = self.Discriminator_real
         
-        ae_cost = tf.reduce_mean(tf.log(1. - disc_fake))
-        disc_cost = -tf.reduce_mean(tf.log(disc_real) + tf.log(1. - disc_fake))
+        disc_cost = tf.reduce_mean(disc_fake) - tf.reduce_mean(disc_real)
+        ae_cost = -disc_cost
+
+        alpha = tf.random_uniform(
+            shape=[BATCH_SIZE,1], 
+            minval=0.,
+            maxval=1.
+        )
+        
+        differences = self.qz - self.pz
+        interpolates = self.pz + (alpha*differences)
+        gradients = tf.gradients(self.build_discriminator(interpolates, True), [interpolates])[0]
+        slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1]))
+        gradient_penalty = tf.reduce_mean((slopes-1.)**2)
+        disc_cost += self.LAMBDA*gradient_penalty
         
         disc_train_op = tf.train.AdamOptimizer(
             learning_rate=1e-4, 
@@ -194,12 +209,12 @@ class GAN_WAE(GAN):
         disc_cost, disc_train_op = self.disc_cost, self.disc_train_op
         
         # Train loop
-        noise_size = (BATCH_SIZE, self.get_image_dim())
+        noise_size = (BATCH_SIZE, self.get_latent_dim())
         
         # Run discriminator
         disc_iters = CRITIC_ITERS
         for i in range(disc_iters):
-            _data, _ = next(utils.batch_gen(train_gen))
+            _data, _ = next(train_gen)
             _disc_cost, _ = session.run(
                 [disc_cost, disc_train_op],
                 feed_dict={
@@ -207,23 +222,35 @@ class GAN_WAE(GAN):
                     self.pz: noise_gen(noise_size)})
             
             if( it % 100 == 4 ):
-                print ('at iteration : ', i, ' disc_loss : ', _disc_cost)
-
+                print ('at iteration : ', i, ' disc_loss : ', -_disc_cost)
+        
 ##########################################################    
 class WAE(AE):    
-    def __init__(self):
+    def __init__(self, exGAN):
         self.data_func = utils.swiss_load
         self.MODEL_DIRECTORY = './model_WAE/TEST/'
-        self.LAMBDA = 10
-        
+        self.LAMBDA = 5
+        self.exGAN = exGAN
         super(WAE, self).__init__()
+    
+    def decoder(self, z, dim_img, n_hidden=256):
+        return self.exGAN.build_generator(z, reuse=True)
+    
+    # Gateway
+    def autoencoder(self, x_hat, x, n_hidden=256, reuse=False):
+        # encoding
+        mu, sigma, z = self.gaussian_MLP_encoder(x_hat, n_hidden, reuse) 
+
+        # decoding
+        y = self.exGAN.build_generator(mu, reuse=True)
+        
+        return z, y
     
     def gan_penalty(self):
         # Pz = Qz test based on GAN in the Z space
         self.refGAN = GAN_WAE(self.gaussian_MLP_encoder)
         return self.refGAN.ae_cost
         
-
     def mmd_penalty(self, sample_qz, sample_pz):
         sigma2_p = 1
         n = BATCH_SIZE
@@ -254,59 +281,82 @@ class WAE(AE):
         res2 = tf.reduce_sum(res2) * 2. / (n * n)
         stat = res1 - res2
         
-        return stat
+        return tf.reduce_mean(stat)
     
     def define_loss(self):
         resconstruct_loss = tf.reduce_mean(tf.squared_difference(self.rx, self.x))
         self.res_loss = resconstruct_loss
         
         # Define GAN Loss
-        #matching_loss = self.gan_penalty()
         self.qz = self.z
         self.pz = tf.placeholder(tf.float32, shape=[None, self.get_latent_dim()], name='latent_noise')
         matching_loss = self.mmd_penalty(self.qz, self.pz)
+        #matching_loss = self.gan_penalty()
         
-        loss = self.LAMBDA * tf.reduce_mean(matching_loss) + resconstruct_loss
+        self.loss = resconstruct_loss + self.LAMBDA * matching_loss
         
         self.encode_params = [var for var in tf.trainable_variables() if 'encoder' in var.name]
-        self.decode_params = [var for var in tf.trainable_variables() if 'decoder' in var.name]
+        self.decode_params = self.exGAN.gen_params
+        #self.decode_params = [var for var in tf.trainable_variables() if 'decoder' in var.name]
         
         self.global_step = tf.Variable(0)
         learning_rate = tf.train.exponential_decay(
                 1e-4,  # Base learning rate.
                 self.global_step,  # Current index into the dataset.
-                5000,  # Decay step.
-                0.95,  # Decay rate.
+                3000,  # Decay step.
+                0.9,  # Decay rate.
                 staircase=True)
-        ae_train_op = tf.train.AdamOptimizer(
+        self.en_train_op = tf.train.AdamOptimizer(
             learning_rate=learning_rate, 
             beta1=0.5,
-            beta2=0.9).minimize(loss, global_step=self.global_step)
+            beta2=0.9,
+            name="auto").minimize(resconstruct_loss, var_list=self.encode_params, global_step=self.global_step)
         
-        return loss, ae_train_op
+        self.de_train_op = tf.train.AdamOptimizer(
+            learning_rate=1e-4, 
+            beta1=0.5,
+            beta2=0.9,
+            name="auto2").minimize(self.loss, var_list=self.encode_params+self.decode_params)
+        
+        return self.loss, None
         
     def train(self, sess):
         # Dataset iterator
         train_gen, _, _ = utils.load_dataset(BATCH_SIZE, self.data_func)
         
         noise_size = (BATCH_SIZE, self.get_latent_dim())
+        train_gen = utils.batch_gen(train_gen)
         # Train loop
         for iteration in range(ITERS):
-            batch_xs, _ = next(utils.batch_gen(train_gen))
-            batch_noise = batch_xs# + np.random.normal(0, 0.1, size=batch_xs.shape)
+            batch_xs, _ = next(train_gen)
+            batch_noise = batch_xs #+ np.random.normal(0, 0.1, size=batch_xs.shape)
 
             # HAHAHAHAHA SIBALSEKKI
-            #self.refGAN.train(sess, train_gen, self.noise_gen, iteration)
+            # self.refGAN.train(sess, train_gen, self.noise_gen, iteration)
             
-            _, res_loss = sess.run(
-                    (self.train_op, self.res_loss),
+            _, rs_loss = sess.run(
+                    (self.en_train_op, self.res_loss),
                     feed_dict={self.x_hat: batch_noise, self.x: batch_xs, self.pz: self.noise_gen(noise_size), 
-                              #self.refGAN.data: batch_xs
+                              #self.refGAN.data: batch_xs, self.refGAN.pz: self.noise_gen(noise_size)
                               })
+            
+            # Calculate dev loss and generate samples every 1000 iters
+            if iteration % 1000 == 10:
+                print ('at iteration : ', iteration, ' loss : ', rs_loss)
+                self.test_generate(sess, train_gen, filename='train_samples.png')
+                
+        """
+        for iteration in range(ITERS*2):
+            batch_xs, _ = next(train_gen)
+            batch_noise = batch_xs #+ np.random.normal(0, 0.1, size=batch_xs.shape)
+            
+            _, rs_loss = sess.run(
+                    (self.de_train_op, self.res_loss),
+                    feed_dict={self.x_hat: batch_noise, self.x: batch_xs, self.pz: self.noise_gen(noise_size)})
 
             # Calculate dev loss and generate samples every 1000 iters
             if iteration % 1000 == 10:
-                print ('at iteration : ', iteration, ' loss : ', res_loss)
+                print ('at iteration : ', iteration, ' loss : ', rs_loss)
                 self.test_generate(sess, train_gen, filename='train_samples.png')
     
-    
+        """

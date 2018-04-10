@@ -36,14 +36,16 @@ def save_images(X, save_path):
     imsave(save_path, img)
     
 def test_2d():
-    it, TRAIN_SIZE, TEST_SIZE = 0, 65536, 2000
+    it, TRAIN_SIZE, TEST_SIZE = 0, 260520, 2000
     train_data, test_data = [], []
     train_target, test_target = [], []
     while( it < TRAIN_SIZE + TEST_SIZE ):
-        x0, y0 = 1 * (np.random.randint(10, size=2) - 5)
-        r = np.random.normal(0, 0.1)
+        x0, y0 = 4 * (np.random.randint(3, size=2) - 1)
+        r = np.random.normal(0, 0.5)
         t = np.random.uniform(0, 6.3)
         xy = np.matrix([x0 + (r**2)*math.cos(t), y0 + (r**2)*math.sin(t)])
+        #x0, y0 = np.random.uniform(0, 1, size=2)
+        #xy = np.matrix([x0 + 1, y0 + 1])
         label = 1
         
         it = it + 1
@@ -69,13 +71,13 @@ def test_2d():
 
 # Toy Testset
 def swiss_load():
-    it, TRAIN_SIZE, TEST_SIZE = 0, 32768, 2000
+    it, TRAIN_SIZE, TEST_SIZE = 0, 65536, 2000
     train_data, test_data = [], []
     train_target, test_target = [], []
     while( it < TRAIN_SIZE + TEST_SIZE ):
         t = np.random.uniform(0, 10)
         
-        xy = 0.1*np.matrix([t*math.cos(t), t*math.sin(t)])
+        xy = 0.5*np.matrix([t*math.cos(2*t), t*math.sin(2*t)])
         label = 1
         
         it = it + 1

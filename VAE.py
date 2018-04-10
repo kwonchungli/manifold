@@ -72,7 +72,7 @@ class VAE(AE):
         gen = utils.batch_gen(train_gen)
         for iteration in range(ITERS):
             batch_xs, _ = next(gen) 
-            batch_noise = batch_xs + np.random.normal(0, 0.2, size=batch_xs.shape)
+            batch_noise = batch_xs
 
             _, tot_loss = sess.run(
                     (self.train_op, self.loss),
