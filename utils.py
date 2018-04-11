@@ -3,6 +3,10 @@ import numpy as np
 import math
 import scipy.misc
 from scipy.misc import imsave
+import tensorflow as tf
+
+def LeakyReLU(x, alpha=0.1):
+    return tf.maximum(x, alpha*x)
 
 def save_images(X, save_path):
     # [0, 1] -> [0,255]

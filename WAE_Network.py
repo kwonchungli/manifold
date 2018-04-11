@@ -4,9 +4,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
-BATCH_SIZE = 1024 # Batch size
-ITERS = 500001 # How many generator iterations to train for 
-
+BATCH_SIZE = 512 # Batch size
+ITERS = 100001 # How many generator iterations to train for 
 
 class AE(object):
     def __init__(self):
@@ -106,18 +105,18 @@ class AE(object):
         gen_points = sess.run(self.decoded,
                                  feed_dict={self.z_in: noises})
         
-        plt.scatter(gen_points[:,0], gen_points[:,1], s=0.4, c='b', alpha=0.4)
+        plt.scatter(gen_points[:,0], gen_points[:,1], s=0.4, c='b', alpha=0.1)
         
-        for i in range(10):
+        for i in range(5):
             batch, _ = next(train_gen)
             rx, res = sess.run([self.rx, self.z], feed_dict={self.x_hat: batch, self.x: batch})
-            #plt.scatter(batch[:,0], batch[:,1], s=5, c='r', alpha=0.01)
+            plt.scatter(batch[:5,0], batch[:5,1], s=10, c='r', alpha=1)
             #plt.scatter(res[:,0], 0, s=5, c='r', alpha=0.01)
-            plt.scatter(rx[:,0], rx[:,1], s=5, c='g', alpha=1)
+            plt.scatter(rx[:5,0], rx[:5,1], s=10, c='g', alpha=1)
         
         fig.savefig(filename)
         plt.close()
-        
+                
     def train(self, sess):
         pass
         
@@ -137,7 +136,7 @@ class AE(object):
     
 #########################################################################
 
-CRITIC_ITERS = 5
+CRITIC_ITERS = 10
 from GAN_Framework import GAN
 
 class GAN_WAE(GAN):
@@ -291,9 +290,16 @@ class WAE(AE):
         self.qz = self.z
         self.pz = tf.placeholder(tf.float32, shape=[None, self.get_latent_dim()], name='latent_noise')
         matching_loss = self.mmd_penalty(self.qz, self.pz)
-        #matching_loss = self.gan_penalty()
         
-        self.loss = resconstruct_loss + self.LAMBDA * matching_loss
+        """
+        HackHack
+        """
+        self.rz = self.gaussian_MLP_encoder(self.decoded, reuse = True)
+        self.res_loss_z = tf.reduce_mean(tf.squared_difference(self.z_in, self.rz))
+        #matching_loss = self.gan_penalty()
+        """ """
+        
+        self.loss = resconstruct_loss #+ self.LAMBDA * matching_loss
         
         self.encode_params = [var for var in tf.trainable_variables() if 'encoder' in var.name]
         self.decode_params = self.exGAN.gen_params
@@ -303,17 +309,17 @@ class WAE(AE):
         learning_rate = tf.train.exponential_decay(
                 1e-4,  # Base learning rate.
                 self.global_step,  # Current index into the dataset.
-                3000,  # Decay step.
-                0.9,  # Decay rate.
+                5000,  # Decay step.
+                0.96,  # Decay rate.
                 staircase=True)
         self.en_train_op = tf.train.AdamOptimizer(
             learning_rate=learning_rate, 
             beta1=0.5,
             beta2=0.9,
-            name="auto").minimize(resconstruct_loss, var_list=self.encode_params, global_step=self.global_step)
+            name="auto").minimize(self.res_loss_z, var_list=self.encode_params, global_step=self.global_step)
         
         self.de_train_op = tf.train.AdamOptimizer(
-            learning_rate=1e-4, 
+            learning_rate=.5e-5, 
             beta1=0.5,
             beta2=0.9,
             name="auto2").minimize(self.loss, var_list=self.encode_params+self.decode_params)
@@ -326,20 +332,26 @@ class WAE(AE):
         
         noise_size = (BATCH_SIZE, self.get_latent_dim())
         train_gen = utils.batch_gen(train_gen)
+        
         # Train loop
         for iteration in range(ITERS):
+            # HAHAHAHAHA SIBALSEKKI
+            # self.refGAN.train(sess, train_gen, self.noise_gen, iteration)
+
             batch_xs, _ = next(train_gen)
             batch_noise = batch_xs #+ np.random.normal(0, 0.1, size=batch_xs.shape)
 
-            # HAHAHAHAHA SIBALSEKKI
-            # self.refGAN.train(sess, train_gen, self.noise_gen, iteration)
-            
             _, rs_loss = sess.run(
-                    (self.en_train_op, self.res_loss),
-                    feed_dict={self.x_hat: batch_noise, self.x: batch_xs, self.pz: self.noise_gen(noise_size), 
-                              #self.refGAN.data: batch_xs, self.refGAN.pz: self.noise_gen(noise_size)
-                              })
-            
+                (self.en_train_op, self.res_loss),
+                feed_dict={self.z_in: self.noise_gen(noise_size), self.x_hat: batch_noise, self.x: batch_xs, 
+                           self.pz: self.noise_gen(noise_size)})
+            """
+            _, rs_loss = sess.run(
+                (self.en_train_op, self.res_loss),
+                feed_dict={self.x_hat: batch_noise, self.x: batch_xs, self.pz: self.noise_gen(noise_size), 
+                           #self.refGAN.data: batch_xs, self.refGAN.pz: self.noise_gen(noise_size)
+                          })
+            """
             # Calculate dev loss and generate samples every 1000 iters
             if iteration % 1000 == 10:
                 print ('at iteration : ', iteration, ' loss : ', rs_loss)
