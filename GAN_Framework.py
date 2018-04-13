@@ -254,4 +254,3 @@ class WGAN(GAN):
                 print 'Saving model...'
                 self.saver.save(session, self.MODEL_DIRECTORY+'checkpoint-'+str(iteration))
                 self.saver.export_meta_graph(self.MODEL_DIRECTORY+'checkpoint-'+str(iteration)+'.meta')
-        
