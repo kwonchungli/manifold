@@ -1,9 +1,14 @@
-
-import numpy as np
 import math
+import numpy as np
+import os.path
 import scipy.misc
-from scipy.misc import imsave
 import tensorflow as tf
+
+from scipy.misc import imsave
+
+
+def file_exists(path):
+    return os.path.isfile(path)
 
 def LeakyReLU(x, alpha=0.1):
     return tf.maximum(x, alpha*x)
