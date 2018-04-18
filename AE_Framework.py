@@ -23,7 +23,10 @@ class AE(object):
         
         # optimization
         self.loss, self.train_op = self.define_loss()
-        self.saver = tf.train.Saver(max_to_keep=1)
+        
+        self.enc_params = [var for var in tf.trainable_variables() if 'encoder' in var.name]
+        self.dec_params = [var for var in tf.trainable_variables() if 'decoder' in var.name]
+        self.saver = tf.train.Saver(var_list=self.enc_params + self.dec_params, max_to_keep=1)
         
     def get_image_dim(self):
         return 0
@@ -101,7 +104,7 @@ class AE(object):
         y = self.bernoulli_MLP_decoder(z, n_hidden, reuse=True)
         return y
     
-    def test_generate(self, sess, train_gen, n_samples = 64000, filename='samples.png'):
+    def test_generate(self, sess, train_gen, n_samples = 64000, filename='images/samples.png'):
         pass
                 
     def train(self, sess):
@@ -184,5 +187,9 @@ class FIT_AE(AE):
             # Calculate dev loss and generate samples every 1000 iters
             if iteration % 1000 == 10:
                 print ('at iteration : ', iteration, ' loss : ', rs_loss)
-                self.test_generate(sess, train_gen, filename='train_samples.png')
+                self.test_generate(sess, train_gen, filename='images/train_samples.png')
                 
+            if( iteration % 10000 == 999 ):
+                print 'Saving model...'
+                self.saver.save(sess, self.MODEL_DIRECTORY+'checkpoint-'+str(iteration))
+                self.saver.export_meta_graph(self.MODEL_DIRECTORY+'checkpoint-'+str(iteration)+'.meta')                

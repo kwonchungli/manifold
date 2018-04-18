@@ -16,7 +16,7 @@ class WGAN_test(WGAN):
     def noise_gen(self, noise_size):
         return np.random.normal(size=noise_size).astype('float32')
     
-    def test_generate(self, sess, n_samples = 64000, filename='samples.png'):
+    def test_generate(self, sess, n_samples = 64000, filename='images/samples.png'):
         fig, ax = plt.subplots()
         
         noises = self.noise_gen((n_samples,self.get_latent_dim()))
@@ -68,7 +68,7 @@ class WGAN_Swiss(WGAN):
         return tf.reshape(output, [-1])
     
     def define_learning_rate(self):
-        self.proj_step = tf.Variable(0)
+        self.train_step = tf.Variable(0)
         learning_rate = tf.train.exponential_decay(
                 1e-4,  # Base learning rate.
                 self.proj_step,  # Current index into the dataset.
@@ -83,7 +83,7 @@ class WGAN_Swiss(WGAN):
                 staircase=True)
         return learning_rate, disc_rate
     
-    def test_generate(self, sess, n_samples = 64000, filename='samples.png'):
+    def test_generate(self, sess, n_samples = 64000, filename='images/samples.png'):
         fig = plt.figure()
         
         noises = self.noise_gen((n_samples,self.get_latent_dim()))
@@ -116,7 +116,9 @@ class WGAN_MNIST(WGAN):
     def define_default_param(self):
         self.BATCH_SIZE = 64
         self.ITERS = 50001
-        self.CRITIC_ITERS = 8
+        self.CRITIC_ITERS = 5
+        self.PROJ_ITER = 2500
+        self.PROJ_BATCH_SIZE = 25
         
     def __init__(self):
         self.data_func = utils.MNIST_load
@@ -129,16 +131,16 @@ class WGAN_MNIST(WGAN):
         #return np.random.uniform(0, 10, size=noise_size).astype('float32')
     
     def define_learning_rate(self):
-        self.proj_step = tf.Variable(0)
+        self.train_step = tf.Variable(0)
         learning_rate = tf.train.exponential_decay(
                 1e-2,  # Base learning rate.
-                self.proj_step,  # Current index into the dataset.
+                self.train_step,  # Current index into the dataset.
                 3000,  # Decay step.
                 0.95,  # Decay rate.
                 staircase=True)
         disc_rate = tf.train.exponential_decay(
                 1e-3,  # Base learning rate.
-                self.proj_step,  # Current index into the dataset.
+                self.train_step,  # Current index into the dataset.
                 3000,  # Decay step.
                 0.95,  # Decay rate.
                 staircase=True)
@@ -182,7 +184,7 @@ class WGAN_MNIST(WGAN):
             
         return tf.reshape(output, [-1])
     
-    def test_generate(self, sess, n_samples = 512, filename='samples.png'):
+    def test_generate(self, sess, n_samples = 512, filename='images/samples.png'):
         noises = self.noise_gen((n_samples,self.get_latent_dim()))
         samples = sess.run(self.Generator, feed_dict={self.z_in: noises})
         

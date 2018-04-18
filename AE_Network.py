@@ -18,7 +18,7 @@ class FIT_AE_Swiss(FIT_AE):
     def get_latent_dim(self):
         return 1
     
-    def test_generate(self, sess, train_gen, n_samples = 64000, filename='samples.png'):
+    def test_generate(self, sess, train_gen, n_samples = 64000, filename='images/samples.png'):
         fig, ax = plt.subplots()
         
         noises = self.noise_gen((n_samples, self.get_latent_dim()))
@@ -55,12 +55,17 @@ class FIT_AE_MNIST(FIT_AE):
         return noised
     
     def test_generate(self, sess, train_gen, n_samples = 512, filename='samples.png'):
+        p_size = self.exGAN.PROJ_BATCH_SIZE
         for i in range(1):
             batch, _ = next(train_gen)
-            rx, res = sess.run([self.rx, self.z], feed_dict={self.x_hat: batch, self.x: batch})
+            batch = batch[:p_size, :]
+            rx, rz = sess.run([self.rx, self.z], feed_dict={self.x_hat: batch, self.x: batch})
             
-            utils.save_images(rx.reshape(self.BATCH_SIZE, 28, 28), 'reconstr' + filename)
-            utils.save_images(batch.reshape(self.BATCH_SIZE, 28, 28), 'original' + filename)
+            proj_img = self.exGAN.find_proj(sess, batch, rz)
+            
+            utils.save_images(rx.reshape(p_size, 28, 28), 'images/reconstr.png')
+            utils.save_images(batch.reshape(p_size, 28, 28), 'images/original.png')
+            utils.save_images(proj_img.reshape(p_size, 28, 28), 'images/projection.png')
         
     def decoder(self, z, dim_img, n_hidden=256):
         return self.exGAN.build_generator(z, reuse=True)
