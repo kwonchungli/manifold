@@ -1,11 +1,38 @@
 import math
 import numpy as np
+import os
 import os.path
 import scipy.misc
 import tensorflow as tf
+import urllib
+import gzip
+import cPickle as pickle
 
 from scipy.misc import imsave
 
+def MNIST_load():
+    filepath = './data/mnist.pkl.gz'
+    url = 'http://www.iro.umontreal.ca/~lisa/deep/data/mnist/mnist.pkl.gz'
+
+    if not os.path.isfile(filepath):
+        print ("Couldn't find MNIST dataset in ./data, downloading...")
+        urllib.urlretrieve(url, filepath)
+
+    with gzip.open(filepath, 'rb') as f:
+        train_data, dev_data, test_data = pickle.load(f)
+
+    def shuffle(images, targets):
+        rng_state = np.random.get_state()
+        np.random.shuffle(images)
+        np.random.set_state(rng_state)
+        np.random.shuffle(targets)
+        
+    tr_image, tr_label = train_data
+    ts_image, ts_label = test_data
+    shuffle(tr_image, tr_label)
+    shuffle(ts_image, ts_label)
+    
+    return (tr_image, tr_label, ts_image, ts_label)
 
 def file_exists(path):
     return os.path.isfile(path)

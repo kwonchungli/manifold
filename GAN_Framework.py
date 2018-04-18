@@ -8,13 +8,15 @@ import sklearn.datasets
 import tensorflow as tf
 import utils
 
-BATCH_SIZE = 1024 # Batch size
-ITERS = 20001 # How many generator iterations to train for 
-CRITIC_ITERS = 10 # For WGAN and WGAN-GP, number of critic iters per gen iter
-PROJ_ITER = 2000
-
 class GAN(object):
+    def define_default_param(self):
+        self.BATCH_SIZE = 128 # Batch size
+        self.ITERS = 20001 # How many generator iterations to train for 
+        self.CRITIC_ITERS = 10 # For WGAN and WGAN-GP, number of critic iters per gen iter
+        
     def __init__(self):
+        self.define_default_param()
+        
         self.z_in = tf.placeholder(tf.float32, shape=[None, self.get_latent_dim()], name='latent_variable')
         self.data = tf.placeholder(tf.float32, shape=[None, self.get_image_dim()])
         
@@ -164,27 +166,7 @@ class WGAN(GAN):
         self.LAMBDA = .1 # Gradient penalty lambda hyperparameter
         super(WGAN, self).__init__()
         
-    def define_loss(self):
-        fake_data = self.Generator
-        disc_fake = self.Discriminator_fake
-        disc_real = self.Discriminator_real
-
-        gen_cost = -tf.reduce_mean(disc_fake)
-        disc_cost = tf.reduce_mean(disc_fake) - tf.reduce_mean(disc_real)
-
-        alpha = tf.random_uniform(
-            shape=[BATCH_SIZE,1], 
-            minval=0.,
-            maxval=1.
-        )
-        
-        differences = fake_data - self.data
-        interpolates = self.data + (alpha*differences)
-        gradients = tf.gradients(self.build_discriminator(interpolates, True), [interpolates])[0]
-        slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1]))
-        gradient_penalty = tf.reduce_mean((slopes-1.)**2)
-        disc_cost += self.LAMBDA*gradient_penalty
-
+    def define_learning_rate(self):
         self.proj_step = tf.Variable(0)
         learning_rate = tf.train.exponential_decay(
                 3e-3,  # Base learning rate.
@@ -198,6 +180,30 @@ class WGAN(GAN):
                 2000,  # Decay step.
                 0.9,  # Decay rate.
                 staircase=True)
+        return learning_rate, disc_rate
+        
+    def define_loss(self):
+        fake_data = self.Generator
+        disc_fake = self.Discriminator_fake
+        disc_real = self.Discriminator_real
+
+        gen_cost = -tf.reduce_mean(disc_fake)
+        disc_cost = tf.reduce_mean(disc_fake) - tf.reduce_mean(disc_real)
+
+        alpha = tf.random_uniform(
+            shape=[self.BATCH_SIZE,1], 
+            minval=0.,
+            maxval=1.
+        )
+        
+        differences = fake_data - self.data
+        interpolates = self.data + (alpha*differences)
+        gradients = tf.gradients(self.build_discriminator(interpolates, True), [interpolates])[0]
+        slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1]))
+        gradient_penalty = tf.reduce_mean((slopes-1.)**2)
+        disc_cost += self.LAMBDA*gradient_penalty
+
+        learning_rate, disc_rate = self.define_learning_rate()
         
         gen_train_op = tf.train.AdamOptimizer(
             learning_rate=learning_rate, 
@@ -215,21 +221,21 @@ class WGAN(GAN):
     
     def train(self, session):
         # Dataset iterator
-        train_gen, _, _ = utils.load_dataset(BATCH_SIZE, self.data_func)
+        train_gen, _, _ = utils.load_dataset(self.BATCH_SIZE, self.data_func)
         train_gen = utils.batch_gen(train_gen)
         
         # cache variables
         disc_cost, gen_train_op, disc_train_op = self.disc_cost, self.gen_train_op, self.disc_train_op
         
         # Train loop
-        noise_size = (BATCH_SIZE, self.get_latent_dim())
-        for iteration in range(ITERS):
+        noise_size = (self.BATCH_SIZE, self.get_latent_dim())
+        for iteration in range(self.ITERS):
             if iteration > 0:
                 _ = session.run(gen_train_op, 
                                 feed_dict={self.z_in: self.noise_gen(noise_size)})
 
             # Run discriminator
-            disc_iters = CRITIC_ITERS
+            disc_iters = self.CRITIC_ITERS
             for i in range(disc_iters):
                 _data, label = next(train_gen)
                 _disc_cost, _ = session.run(
@@ -246,7 +252,7 @@ class WGAN(GAN):
                 print '-------------------------------------'
                 
             # Calculate dev loss and generate samples every 100 iters
-            if iteration % 1000 == 10:
+            if iteration % 100 == 10:
                 self.test_generate(session, filename='train_samples.png')
 
             # Checkpoint
