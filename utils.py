@@ -114,8 +114,8 @@ def swiss_load():
         t = np.random.uniform(0, 10)
         
         xy = 0.5*np.matrix([t*math.cos(2*t), t*math.sin(2*t)])
-        label = 1
-        
+        label = int(t < 5)
+
         it = it + 1
         if( it < TRAIN_SIZE ):
             train_data.append(xy)
