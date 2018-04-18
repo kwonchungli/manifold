@@ -1,0 +1,2 @@
+model_checkpoint_path: "C:\\Users\\Justin\\Documents\\GitHub\\manifold\\Adversarial Training\\MNIST\\data\\mnist_normal.ckpt"
+all_model_checkpoint_paths: "C:\\Users\\Justin\\Documents\\GitHub\\manifold\\Adversarial Training\\MNIST\\data\\mnist_normal.ckpt"
