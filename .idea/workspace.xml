@@ -2,9 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="6247390e-d04a-4858-83e6-0b8a8abebb8d" name="Default" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Adversarial Training/MNIST/attack_classifier.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Adversarial Training/MNIST/train_classifier.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Adversarial Training/MNIST/README.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Adversarial Training/MNIST/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -15,7 +15,7 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="train_classifier.py" pinned="false" current-in-tab="true">
+      <file leaf-file-name="train_classifier.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/Adversarial Training/MNIST/train_classifier.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="2499">
@@ -27,10 +27,10 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="attack_classifier.py" pinned="false" current-in-tab="false">
+      <file leaf-file-name="attack_classifier.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/Adversarial Training/MNIST/attack_classifier.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-1999">
+            <state relative-caret-position="110">
               <caret line="27" column="113" selection-start-line="27" selection-start-column="113" selection-end-line="27" selection-end-column="113" />
               <folding>
                 <element signature="e#306#344#0" expanded="true" />
@@ -68,14 +68,15 @@
       <list>
         <option value="$PROJECT_DIR$/Adversarial Training/MNIST/attack_classifier.py" />
         <option value="$PROJECT_DIR$/Adversarial Training/MNIST/train_classifier.py" />
+        <option value="$PROJECT_DIR$/Adversarial Training/MNIST/README.txt" />
+        <option value="$PROJECT_DIR$/Adversarial Training/MNIST/requirements.txt" />
       </list>
     </option>
   </component>
-  <component name="ProjectFrameBounds" extendedState="7">
-    <option name="x" value="175" />
-    <option name="y" value="66" />
-    <option name="width" value="1188" />
-    <option name="height" value="788" />
+  <component name="ProjectFrameBounds" extendedState="6">
+    <option name="x" value="683" />
+    <option name="width" value="683" />
+    <option name="height" value="728" />
   </component>
   <component name="ProjectView">
     <navigator proportions="" version="1">
@@ -100,13 +101,6 @@
               <item name="manifold" type="462c0819:PsiDirectoryNode" />
               <item name="Adversarial Training" type="462c0819:PsiDirectoryNode" />
               <item name="MNIST" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="manifold" type="b2602c69:ProjectViewProjectNode" />
-              <item name="manifold" type="462c0819:PsiDirectoryNode" />
-              <item name="Adversarial Training" type="462c0819:PsiDirectoryNode" />
-              <item name="MNIST" type="462c0819:PsiDirectoryNode" />
-              <item name="models" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
           <select />
@@ -192,19 +186,19 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="-8" width="1382" height="744" extended-state="7" />
+    <frame x="-8" y="-8" width="1382" height="744" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.104166664" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.17931548" />
       <window_info anchor="bottom" id="TODO" order="6" />
       <window_info anchor="bottom" id="Event Log" order="7" side_tool="true" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.32857144" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.33278418" />
+      <window_info anchor="bottom" id="Run" order="2" weight="0.33278418" />
       <window_info anchor="bottom" id="Version Control" order="7" />
       <window_info anchor="bottom" id="Python Console" order="7" weight="0.3294893" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info anchor="bottom" id="Terminal" order="7" />
-      <window_info anchor="bottom" id="Debug" order="3" weight="0.0" />
+      <window_info anchor="bottom" id="Debug" order="3" weight="0.3294893" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
@@ -264,13 +258,17 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/Adversarial Training/MNIST/attack_classifier.py">
+    <entry file="file://$PROJECT_DIR$/Adversarial Training/MNIST/README.txt">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-1999">
-          <caret line="27" column="113" selection-start-line="27" selection-start-column="113" selection-end-line="27" selection-end-column="113" />
-          <folding>
-            <element signature="e#306#344#0" expanded="true" />
-          </folding>
+        <state relative-caret-position="170">
+          <caret line="10" column="78" selection-start-line="10" selection-start-column="78" selection-end-line="10" selection-end-column="78" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/Adversarial Training/MNIST/requirements.txt">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="68">
+          <caret line="4" selection-start-line="4" selection-end-line="4" />
         </state>
       </provider>
     </entry>
@@ -278,6 +276,25 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="2499">
           <caret line="147" column="39" selection-start-line="147" selection-start-column="39" selection-end-line="147" selection-end-column="39" />
+          <folding>
+            <element signature="e#306#344#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/test.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state>
+          <folding>
+            <element signature="e#0#38#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/Adversarial Training/MNIST/attack_classifier.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="110">
+          <caret line="27" column="113" selection-start-line="27" selection-start-column="113" selection-end-line="27" selection-end-column="113" />
           <folding>
             <element signature="e#306#344#0" expanded="true" />
           </folding>
