@@ -61,7 +61,6 @@ def get_batches(colls, batch_size):
     return apply(zip, [np.array_split(coll, batch_size) for coll in colls])
 
 def get_adv_dataset(sess, logits, x, y, x_test, y_test):
-    # return sess.run(attacks.fgm(x, logits, eps=2.0, ord=np.inf, targeted=True),
     return sess.run(attacks.fgm(x, logits, eps=0.5, ord=np.inf, targeted=True),
                     feed_dict={x: x_test, y: y_test})
 
@@ -81,11 +80,6 @@ def get_accuracy_op(logits, y):
 
 def get_train_op(logits, y, learning_rate):
     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
-    # onehot_labels = tf.one_hot(indices=tf.cast(y, tf.int32), depth=10)
-    # print y
-    # print y.shape
-    # print onehot_labels
-    # print onehot_labels.shape
     loss_op = tf.losses.softmax_cross_entropy(y, logits=logits)
     return optimizer.minimize(loss_op)
 
@@ -105,16 +99,12 @@ def main():
     y_train = np.asarray(mnist.train.labels, dtype=np.int32)
     x_test = mnist.test.images
     y_test = np.asarray(mnist.test.labels, dtype=np.int32)
-    # x_train, y_train, x_test, y_test = utils.swiss_load()
     y_train = make_one_hot(y_train)
     y_test = make_one_hot(y_test)
     with tf.Session() as sess:
-        # x = tf.placeholder(tf.float32, shape=[None, 2])
-        # y = tf.placeholder(tf.int32, shape=[None, 2])
         x = tf.placeholder(tf.float32, shape=[None, 784])
         y = tf.placeholder(tf.int32, shape=[None, 10])
         dropout_rate = tf.placeholder_with_default(0.4, shape=())
-        # logits = dnn_model_fn(x)
         logits = cnn_model_fn(x, dropout_rate)
         train_op = get_train_op(logits, y, learning_rate)
         accuracy_op = get_accuracy_op(logits, y)
