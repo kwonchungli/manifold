@@ -6,7 +6,7 @@ import tensorflow as tf
 
 class AE(object):
     def define_default_param(self):
-        self.BATCH_SIZE = 512
+        self.BATCH_SIZE = 64
         self.ITERS = 100001
         
     def __init__(self):
@@ -142,7 +142,8 @@ class FIT_AE(AE):
         resconstruct_loss = tf.reduce_mean(tf.norm(self.rx - self.x, ord=2, axis=1))
         self.res_loss = resconstruct_loss
 
-        self.rz = self.gaussian_MLP_encoder(self.decoded, reuse = True)
+        noisy_x = self.decoded + tf.random_normal(tf.shape(self.x), self.epsilon/2, self.epsilon, dtype=tf.float32)
+        self.rz = self.gaussian_MLP_encoder(tf.clip_by_value(noisy_x, 0, 1), reuse = True)
         self.res_loss_z = tf.reduce_mean(tf.norm(self.z_in - self.rz, ord=2, axis=1))
         
         self.encode_params = [var for var in tf.trainable_variables() if 'encoder' in var.name]
@@ -189,7 +190,7 @@ class FIT_AE(AE):
                 print ('at iteration : ', iteration, ' loss : ', rs_loss)
                 self.test_generate(sess, train_gen, filename='images/train_samples.png')
                 
-            if( iteration % 10000 == 999 ):
+            if( iteration % 10000 == 9999 ):
                 print 'Saving model...'
                 self.saver.save(sess, self.MODEL_DIRECTORY+'checkpoint-'+str(iteration))
                 self.saver.export_meta_graph(self.MODEL_DIRECTORY+'checkpoint-'+str(iteration)+'.meta')                

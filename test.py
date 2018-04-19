@@ -24,8 +24,8 @@ if __name__ == '__main__':
 
     with tf.Session(config = config) as sess:
         sess.run(init)
-        #myGAN.restore_session(sess)
-        skip = True
+        myGAN.restore_session(sess)
+        skip = False
         
         if skip or file_exists(myGAN.MODEL_DIRECTORY):
             print('Loading WGAN from ' + myGAN.MODEL_DIRECTORY)
@@ -34,4 +34,5 @@ if __name__ == '__main__':
             print('Training WGAN')
             myGAN.train(sess)
         
+        myVAE.restore_session(sess)
         myVAE.train(sess)

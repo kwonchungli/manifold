@@ -101,6 +101,7 @@ def main():
     y_test = np.asarray(mnist.test.labels, dtype=np.int32)
     y_train = make_one_hot(y_train)
     y_test = make_one_hot(y_test)
+    
     with tf.Session() as sess:
         x = tf.placeholder(tf.float32, shape=[None, 784])
         y = tf.placeholder(tf.int32, shape=[None, 10])

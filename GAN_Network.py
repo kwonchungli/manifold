@@ -110,11 +110,10 @@ class WGAN_Swiss(WGAN):
 ########################################################################3
 ########################################################################3
 ########################################################################3
-import tensorflow.contrib.layers as layers
 
 class WGAN_MNIST(WGAN):
     def define_default_param(self):
-        self.BATCH_SIZE = 64
+        self.BATCH_SIZE = 256
         self.ITERS = 50001
         self.CRITIC_ITERS = 5
         self.PROJ_ITER = 2500
@@ -122,7 +121,7 @@ class WGAN_MNIST(WGAN):
         
     def __init__(self):
         self.data_func = utils.MNIST_load
-        self.MODEL_DIRECTORY = "./model_WGAN/MNIST/"
+        self.MODEL_DIRECTORY = "./model_WGAN/MNIST_lt3/"
         
         super(WGAN_MNIST, self).__init__()
         
@@ -133,7 +132,7 @@ class WGAN_MNIST(WGAN):
     def define_learning_rate(self):
         self.train_step = tf.Variable(0)
         learning_rate = tf.train.exponential_decay(
-                1e-2,  # Base learning rate.
+                1e-3,  # Base learning rate.
                 self.train_step,  # Current index into the dataset.
                 3000,  # Decay step.
                 0.95,  # Decay rate.
@@ -191,7 +190,12 @@ class WGAN_MNIST(WGAN):
         utils.save_images(samples.reshape(n_samples, 28, 28), filename)
         
     def get_latent_dim(self):
-        return 15
+        return 50
     def get_image_dim(self):
         return 784
+    
+    
+###########################################################################
+##########################################################################
+
     
