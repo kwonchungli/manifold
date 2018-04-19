@@ -12,7 +12,7 @@ import attacks
 from classifiers import *
 
 def get_adv_dataset(sess, logits, x, y, x_test, y_test):
-    return sess.run(attacks.fgm(x, logits, eps=0.2, ord=np.inf, targeted=False),
+    return sess.run(attacks.fgm(x, logits, eps=0.15, ord=np.inf, targeted=False),
                     feed_dict={x: x_test, y: y_test})
 
 def main():
