@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import OneHotEncoder
 import PIL.Image
 
+from attack_helpers import get_adv_dataset
 import utils
 import attacks
 
@@ -49,13 +50,42 @@ def eval_swiss_model(sess, x, y, logits, x_test, y_test, accuracy_op, image_path
         plt.savefig(image_path)
         plt.figure()
 
-def eval_mnist_model(sess, x, y, dropout_rate, logits, x_test, y_test, accuracy_op, image_path=None, name=None):
-    print(name, "Accuracy:", sess.run(accuracy_op, feed_dict={x: x_test, y: y_test, dropout_rate: 0.0}))
-    if image_path:
-        test_pred = sess.run(tf.argmax(logits, 1), feed_dict={x: x_test, y: y_test, dropout_rate: 0.0})
-        incorrect = test_pred != y_test
-        incorrect_digit = x_test[np.nonzero(incorrect)[0][0]].reshape(28, 28) * 255
-        PIL.Image.fromarray(incorrect_digit).convert('LA').save(image_path)
+def eval_mnist_model(sess, x, y, dropout_rate, logits, test_epoch, accuracy_op, myVAE, image_path=None, name=None):
+    test_gen = utils.batch_gen(test_epoch, True, y.shape[1], 1)
+    
+    it = 0
+    normal_avr, adv_avr, reconstr_avr = 0, 0, 0
+    for x_test, y_test in test_gen:
+        it = it + 1
+        adversarial_x = get_adv_dataset(sess, logits, x, y, x_test, y_test)
+        cleaned_x = myVAE.autoencode_dataset(sess, adversarial_x)
+        
+        normal_avr += sess.run(accuracy_op, feed_dict={x: x_test, y: y_test, dropout_rate: 0.0})
+        adv_avr += sess.run(accuracy_op, feed_dict={x: adversarial_x, y: y_test, dropout_rate: 0.0})
+        reconstr_avr += sess.run(accuracy_op, feed_dict={x: cleaned_x, y: y_test, dropout_rate: 0.0})
+        
+        if( it % 10 == 3 ):
+            test_pred = sess.run(logits, feed_dict={x: cleaned_x, y: y_test, dropout_rate: 0.0})
+            
+            i1 = np.argmax(test_pred, 1)
+            i2 = np.argmax(y_test, 1)
+            index = np.where(np.not_equal(i1, i2))[0]
+            
+            p_size = len(index)
+            wrong_x = x_test[index, :]
+            wrong_adv = adversarial_x[index, :]
+            wrong_res = cleaned_x[index, :]
+            
+            utils.save_images(wrong_x.reshape(p_size, 28, 28), 'images/original.png')
+            utils.save_images(wrong_adv.reshape(p_size, 28, 28), 'images/adversarial.png')
+            utils.save_images(wrong_res.reshape(p_size, 28, 28), 'images/reconstr.png')
+        
+        
+    print ("------------ Test ----------------")
+    print(name, "Normal Accuracy:", normal_avr / it)
+    print(name, "Adversarial Accuracy:", adv_avr / it)
+    print(name, "Reconstructed Accuracy:", reconstr_avr / it)
+
 
 def make_one_hot(coll):
     onehot = np.zeros((coll.shape[0], coll.max() + 1))
@@ -76,12 +106,12 @@ def get_train_op(logits, y, learning_rate):
     loss_op = tf.losses.softmax_cross_entropy(y, logits=logits)
     return optimizer.minimize(loss_op)
 
-def train_model(sess, x, y, x_train, y_train, train_op, num_epochs, batch_size):
-    for epoch_num in range(num_epochs):
-        for batch_x, batch_y in get_batches([x_train, y_train], batch_size):
-            sess.run(train_op, feed_dict={x: batch_x, y: batch_y})
+def train_model(sess, x, y, train_epoch, train_op, num_epochs, batch_size):
+    train_gen = utils.batch_gen(train_epoch, True, y.shape[1], num_epochs)
+    
+    for x_train, y_train in train_gen:
+        sess.run(train_op, feed_dict={x: x_train, y: y_train})
 
-<<<<<<< HEAD:adv_attack_demo.py
 def main():
     train_new_model = True
     checkpoint_dir = '.chkpts/'

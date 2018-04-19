@@ -48,11 +48,8 @@ def save_images(X, save_path):
 
     n_samples = X.shape[0]
     rows = int(np.sqrt(n_samples))
-    while n_samples % rows != 0:
-        rows -= 1
-
-    nh, nw = rows, n_samples/rows
-
+    nh, nw = rows, int(n_samples/rows) + 1
+    
     if X.ndim == 2:
         X = np.reshape(X, (X.shape[0], int(np.sqrt(X.shape[1])), int(np.sqrt(X.shape[1]))))
 
@@ -150,15 +147,18 @@ def load_dataset(batch_size, load_func):
 
     return train_epoch, None, test_epoch
 
-def batch_gen(gens, use_one_hot_encoding=False, out_dim=-1):
-    while True:
+def batch_gen(gens, use_one_hot_encoding=False, out_dim=-1, num_iter=-1):
+    it = 0
+    while (it < num_iter) or (num_iter < 0):
+        it = it + 1
+        
         for images, targets in gens():
             if( use_one_hot_encoding ):
                 n = len(targets)
-                one_hot_code = numpy.zeros((n, out_dim))
+                one_hot_code = np.zeros((n, out_dim))
                 one_hot_code[range(n), targets] = 1
                 yield images, one_hot_code
-            else:    
+            else:
                 yield images, targets
 
 def save_digit(image_array, image_path):

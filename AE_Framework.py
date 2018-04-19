@@ -168,7 +168,7 @@ class FIT_AE(AE):
         
     def add_noise(self, batch_xs):
          return batch_xs + np.random.normal(0, self.epsilon, size=batch_xs.shape)
-            
+
     def train(self, sess):
         # Dataset iterator
         train_gen, _, _ = utils.load_dataset(self.BATCH_SIZE, self.data_func)
@@ -197,4 +197,5 @@ class FIT_AE(AE):
 
     def autoencode_dataset(self, sess, adversarial_x):
         rx, rz = sess.run([self.rx, self.z], feed_dict={self.x_hat: adversarial_x, self.x: adversarial_x})
+        #proj_img = self.exGAN.find_proj(sess, adversarial_x, rz)
         return rx

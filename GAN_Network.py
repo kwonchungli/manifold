@@ -116,13 +116,16 @@ class WGAN_MNIST(WGAN):
         self.BATCH_SIZE = 256
         self.ITERS = 50001
         self.CRITIC_ITERS = 5
-        self.PROJ_ITER = 2500
-        self.PROJ_BATCH_SIZE = 25
+        self.PROJ_ITER = 150
+        self.PROJ_BATCH_SIZE = 100
+        
+    def define_data_dir(self):
+        self.MODEL_DIRECTORY = "./model_WGAN/MNIST/"
         
     def __init__(self):
         self.data_func = utils.MNIST_load
-        self.MODEL_DIRECTORY = "./model_WGAN/MNIST_lt3/"
-        
+        self.define_data_dir()
+
         super(WGAN_MNIST, self).__init__()
         
     def noise_gen(self, noise_size):
@@ -190,12 +193,17 @@ class WGAN_MNIST(WGAN):
         utils.save_images(samples.reshape(n_samples, 28, 28), filename)
         
     def get_latent_dim(self):
-        return 50
+        return 15
     def get_image_dim(self):
         return 784
     
     
 ###########################################################################
 ##########################################################################
-
+class WGAN_MNIST_V2(WGAN_MNIST):
+    def define_data_dir(self):
+        self.MODEL_DIRECTORY = "./model_WGAN/MNIST_lt3/"
+        
+    def get_latent_dim(self):
+        return 50
     

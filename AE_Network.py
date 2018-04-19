@@ -37,17 +37,20 @@ class FIT_AE_Swiss(FIT_AE):
         plt.close()
         
 class FIT_AE_MNIST(FIT_AE): 
+    def define_data_dir(self):
+        self.MODEL_DIRECTORY = "./model_AE/MNIST/"
+        
     def __init__(self, exGAN):
         self.data_func = utils.MNIST_load
-        self.MODEL_DIRECTORY = "./model_AE/MNIST_lt3/"
         self.epsilon = 0.4
         
+        self.define_data_dir()
         super(FIT_AE_MNIST, self).__init__(exGAN)
         
     def get_image_dim(self):
         return 784
     def get_latent_dim(self):
-        return 50
+        return 15
         
     def add_noise(self, batch_xs):
         noised = batch_xs + np.random.normal(self.epsilon/2, self.epsilon/2) * (np.random.randint(4, size=batch_xs.shape) - 1)
@@ -106,3 +109,12 @@ class FIT_AE_MNIST(FIT_AE):
         y = self.exGAN.build_generator(mu, reuse=True)
         
         return z, y
+
+##########################################################################
+class FIT_AE_MNIST_V2(FIT_AE_MNIST):
+    def define_data_dir(self):
+        self.MODEL_DIRECTORY = "./model_AE/MNIST_lt3/"
+        
+    def get_latent_dim(self):
+        return 50
+    

@@ -155,7 +155,7 @@ class GAN(object):
             
             for i in range(self.PROJ_ITER):
                 _, cost = sess.run([self.proj_op, self.proj_loss], feed_dict={self.test_x: batch_x})
-                if( i % 1000 == 0 ):
+                if( i % 50 == 0 ):
                     print ('Projection Cost is : ', cost)
                     
             if( cost < min_cost ):
