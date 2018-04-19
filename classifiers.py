@@ -57,13 +57,6 @@ def eval_mnist_model(sess, x, y, dropout_rate, logits, x_test, y_test, accuracy_
         incorrect_digit = x_test[np.nonzero(incorrect)[0][0]].reshape(28, 28) * 255
         PIL.Image.fromarray(incorrect_digit).convert('LA').save(image_path)
 
-def get_batches(colls, batch_size):
-    return apply(zip, [np.array_split(coll, batch_size) for coll in colls])
-
-def get_adv_dataset(sess, logits, x, y, x_test, y_test):
-    return sess.run(attacks.fgm(x, logits, eps=0.5, ord=np.inf, targeted=True),
-                    feed_dict={x: x_test, y: y_test})
-
 def make_one_hot(coll):
     onehot = np.zeros((coll.shape[0], coll.max() + 1))
     onehot[np.arange(coll.shape[0]), coll] = 1
@@ -88,6 +81,7 @@ def train_model(sess, x, y, x_train, y_train, train_op, num_epochs, batch_size):
         for batch_x, batch_y in get_batches([x_train, y_train], batch_size):
             sess.run(train_op, feed_dict={x: batch_x, y: batch_y})
 
+<<<<<<< HEAD:adv_attack_demo.py
 def main():
     train_new_model = True
     checkpoint_dir = '.chkpts/'
@@ -123,4 +117,7 @@ def main():
         adv_x_test = get_adv_dataset(sess, logits, x, y, x_test, y_test)
         eval_mnist_model(sess, x, y, dropout_rate, logits, adv_x_test, y_test, accuracy_op, image_path='./adv_results.png', name='adv_testing')
 
+def get_batches(colls, batch_size):
+    return apply(zip, [np.array_split(coll, batch_size) for coll in colls])
+    
 if __name__ == '__main__': main()

@@ -193,4 +193,8 @@ class FIT_AE(AE):
             if( iteration % 10000 == 9999 ):
                 print 'Saving model...'
                 self.saver.save(sess, self.MODEL_DIRECTORY+'checkpoint-'+str(iteration))
-                self.saver.export_meta_graph(self.MODEL_DIRECTORY+'checkpoint-'+str(iteration)+'.meta')                
+                self.saver.export_meta_graph(self.MODEL_DIRECTORY+'checkpoint-'+str(iteration)+'.meta')
+
+    def autoencode_dataset(self, sess, adversarial_x):
+        rx, rz = sess.run([self.rx, self.z], feed_dict={self.x_hat: adversarial_x, self.x: adversarial_x})
+        return rx
