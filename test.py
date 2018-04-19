@@ -21,6 +21,14 @@ if __name__ == '__main__':
     #myGAN = WGAN_Swiss()
     #myVAE = FIT_AE_Swiss(myGAN)
 
+    learning_rate = 0.001
+    x = tf.placeholder(tf.float32, shape=[None, 784])
+    y = tf.placeholder(tf.int32, shape=[None, 10])
+    dropout_rate = tf.placeholder_with_default(0.4, shape=())
+    logits = cnn_model_fn(x, dropout_rate)
+    train_op = get_train_op(logits, y, learning_rate)
+    accuracy_op = get_accuracy_op(logits, y)
+
     init = tf.global_variables_initializer()
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
@@ -39,7 +47,6 @@ if __name__ == '__main__':
 
         myVAE.ITERS = 6000
         myVAE.train(sess)
-        learning_rate = 0.001
         num_epochs = 1
         batch_size = 100
         mnist = tf.contrib.learn.datasets.load_dataset("mnist")
@@ -49,13 +56,6 @@ if __name__ == '__main__':
         y_test = np.asarray(mnist.test.labels, dtype=np.int32)
         y_train = make_one_hot(y_train)
         y_test = make_one_hot(y_test)
-        x = tf.placeholder(tf.float32, shape=[None, 784])
-        y = tf.placeholder(tf.int32, shape=[None, 10])
-        dropout_rate = tf.placeholder_with_default(0.4, shape=())
-        logits = cnn_model_fn(x, dropout_rate)
-        train_op = get_train_op(logits, y, learning_rate)
-        accuracy_op = get_accuracy_op(logits, y)
-        init = tf.global_variables_initializer()
         print('training model')
         train_model(sess, x, y, x_train, y_train, train_op, num_epochs, batch_size)
         print('making adv dataset')
