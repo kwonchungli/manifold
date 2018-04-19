@@ -7,6 +7,7 @@ import tensorflow as tf
 import urllib
 import gzip
 import cPickle as pickle
+import PIL.Image
 
 from scipy.misc import imsave
 
@@ -159,3 +160,7 @@ def batch_gen(gens, use_one_hot_encoding=False, out_dim=-1):
                 yield images, one_hot_code
             else:    
                 yield images, targets
+
+def save_digit(image_array, image_path):
+    reshaped_image = image_array.reshape(28, 28) * 255
+    PIL.Image.fromarray(reshaped_image).convert('LA').save(image_path)

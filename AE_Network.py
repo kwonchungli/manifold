@@ -61,11 +61,11 @@ class FIT_AE_MNIST(FIT_AE):
             batch = batch[:p_size, :]
             rx, rz = sess.run([self.rx, self.z], feed_dict={self.x_hat: batch, self.x: batch})
             
-            proj_img = self.exGAN.find_proj(sess, batch, rz)
+            # proj_img = self.exGAN.find_proj(sess, batch, rz)
             
             utils.save_images(rx.reshape(p_size, 28, 28), 'images/reconstr.png')
             utils.save_images(batch.reshape(p_size, 28, 28), 'images/original.png')
-            utils.save_images(proj_img.reshape(p_size, 28, 28), 'images/projection.png')
+            # utils.save_images(proj_img.reshape(p_size, 28, 28), 'images/projection.png')
         
     def decoder(self, z, dim_img, n_hidden=256):
         return self.exGAN.build_generator(z, reuse=True)
@@ -78,4 +78,4 @@ class FIT_AE_MNIST(FIT_AE):
         # decoding
         y = self.exGAN.build_generator(mu, reuse=True)
         
-        return z, y        
+        return z, y
