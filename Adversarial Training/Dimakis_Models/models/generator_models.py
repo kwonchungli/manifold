@@ -4,11 +4,11 @@ from tensorlayer.layers import *
 from .generator_utils import *
 slim = tf.contrib.slim
 # Copied for WGAN
-from lib_external import tflib as lib
-import lib_external.tflib.ops.linear as linear
-import lib_external.tflib.ops.conv2d as conv2d
-import lib_external.tflib.ops.batchnorm as batchnorm
-import lib_external.tflib.ops.deconv2d as deconv2d
+#from lib_external import tflib as lib
+#import lib_external.tflib.ops.linear as linear
+#import lib_external.tflib.ops.conv2d as conv2d
+#import lib_external.tflib.ops.batchnorm as batchnorm
+#import lib_external.tflib.ops.deconv2d as deconv2d
 
 def celebA_generator(z, hidden_num=128, output_num=3, repeat_num=4, data_format='NCHW', reuse=False):
     with tf.variable_scope("G", reuse=reuse) as vs:
