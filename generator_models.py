@@ -1,20 +1,15 @@
 import tensorflow as tf
 import tensorlayer as tl
 from tensorlayer.layers import *
-from .generator_utils import *
+from generator_utils import *
 slim = tf.contrib.slim
-# Copied for WGAN
-#from lib_external import tflib as lib
-#import lib_external.tflib.ops.linear as linear
-#import lib_external.tflib.ops.conv2d as conv2d
-#import lib_external.tflib.ops.batchnorm as batchnorm
-#import lib_external.tflib.ops.deconv2d as deconv2d
+
 
 def celebA_generator(z, hidden_num=128, output_num=3, repeat_num=4, data_format='NCHW', reuse=False):
     with tf.variable_scope("G", reuse=reuse) as vs:
         num_output = int(np.prod([8, 8, hidden_num]))
         x = slim.fully_connected(z, num_output, activation_fn=None)
-        x = reshape(x, 8, 8, hidden_num, data_format)       
+        x = reshape(x, 8, 8, hidden_num, data_format)
         for idx in range(repeat_num):
             x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
             x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
