@@ -12,8 +12,10 @@ from AE_Network import *
 
 
 if __name__ == '__main__':
-    myGAN = WGAN_MNIST_V2()
-    myVAE = FIT_AE_MNIST_V2(myGAN)
+    # myGAN = WGAN_MNIST_V2()
+    # myVAE = FIT_AE_MNIST_V2(myGAN)
+    myGAN = WGAN_MNIST()
+    myVAE = FIT_AE_MNIST(myGAN)
     
     init = tf.global_variables_initializer()
     config = tf.ConfigProto()
@@ -23,7 +25,5 @@ if __name__ == '__main__':
         sess.run(init)
         
         myGAN.restore_session(sess)
-        myGAN.train(sess)
+        # myGAN.train(sess)
         myVAE.train(sess)
-       
-    
