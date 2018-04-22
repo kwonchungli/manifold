@@ -11,6 +11,26 @@ import PIL.Image
 
 from scipy.misc import imsave
 
+def shuffle(images, targets):
+    rng_state = np.random.get_state()
+    np.random.shuffle(images)
+    np.random.set_state(rng_state)
+    np.random.shuffle(targets)
+
+def cifar10_load():
+    path = './pretrained_models/cifar10/data/cifar10_train/cifar-10-batches-py/'
+    batches = ['data_batch_1', 'data_batch_2', 'data_batch_3', 'data_batch_4', 'data_batch_5']
+    data = []
+    targets = []
+    for batch in batches:
+        with open(path + batch, 'rb') as file_handle:
+            batch_data = pickle.load(file_handle)
+            data.append(batch_data['data'])
+            targets.append(batch_data['labels'])
+    with open(path + 'test_batch') as file_handle:
+        batch_data = pickle.load(file_handle)
+        return np.vstack(data), np.concatenate(targets), batch_data['data'], batch_data['labels']
+
 def MNIST_load():
     filepath = './data/mnist.pkl.gz'
     url = 'http://www.iro.umontreal.ca/~lisa/deep/data/mnist/mnist.pkl.gz'
@@ -22,17 +42,11 @@ def MNIST_load():
     with gzip.open(filepath, 'rb') as f:
         train_data, dev_data, test_data = pickle.load(f)
 
-    def shuffle(images, targets):
-        rng_state = np.random.get_state()
-        np.random.shuffle(images)
-        np.random.set_state(rng_state)
-        np.random.shuffle(targets)
-        
     tr_image, tr_label = train_data
     ts_image, ts_label = test_data
     shuffle(tr_image, tr_label)
     shuffle(ts_image, ts_label)
-    
+
     return (tr_image, tr_label, ts_image, ts_label)
 
 def file_exists(path):
@@ -49,7 +63,7 @@ def save_images(X, save_path):
     n_samples = X.shape[0]
     rows = int(np.sqrt(n_samples))
     nh, nw = rows, int(n_samples/rows) + 1
-    
+
     if X.ndim == 2:
         X = np.reshape(X, (X.shape[0], int(np.sqrt(X.shape[1])), int(np.sqrt(X.shape[1]))))
 
@@ -68,7 +82,7 @@ def save_images(X, save_path):
         img[j*h:j*h+h, i*w:i*w+w] = x
 
     imsave(save_path, img)
-    
+
 def test_2d():
     it, TRAIN_SIZE, TEST_SIZE = 0, 260520, 2000
     train_data, test_data = [], []
@@ -81,7 +95,7 @@ def test_2d():
         #x0, y0 = np.random.uniform(0, 1, size=2)
         #xy = np.matrix([x0 + 1, y0 + 1])
         label = 1
-        
+
         it = it + 1
         if( it < TRAIN_SIZE ):
             train_data.append(xy)
@@ -89,10 +103,10 @@ def test_2d():
         else:
             test_data.append(xy)
             test_target.append(label)
-    
+
     train_data = np.vstack(train_data)
     test_data = np.vstack(test_data)
-    
+
     import matplotlib
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots()
@@ -100,7 +114,7 @@ def test_2d():
 
     fig.savefig('train.png')
     plt.close()
-        
+
     return train_data, train_target, test_data, test_target
 
 # Toy Testset
@@ -110,7 +124,7 @@ def swiss_load():
     train_target, test_target = [], []
     while( it < TRAIN_SIZE + TEST_SIZE ):
         t = np.random.uniform(0, 10)
-        
+
         xy = 0.5*np.matrix([t*math.cos(2*t), t*math.sin(2*t)])
         label = int(t < 5)
 
@@ -121,23 +135,23 @@ def swiss_load():
         else:
             test_data.append(xy)
             test_target.append(label)
-    
+
     train_data = np.vstack(train_data)
     test_data = np.vstack(test_data)
-    
+
     return train_data, train_target, test_data, test_target
-    
+
 def load_dataset(batch_size, load_func):
     train_data, train_target, test_data, test_target = load_func()
     test_size = batch_size
-    
+
     def train_epoch():
         tot_len = train_data.shape[0]
         i = np.random.randint(0, batch_size)
         while(i + batch_size < tot_len):
             yield (np.copy(train_data[i:i+batch_size, :]), np.copy(train_target[i:i+batch_size]))
             i = i + batch_size
-    
+
     def test_epoch():
         tot_len = test_data.shape[0]
         i = np.random.randint(0, test_size)
@@ -151,7 +165,7 @@ def batch_gen(gens, use_one_hot_encoding=False, out_dim=-1, num_iter=-1):
     it = 0
     while (it < num_iter) or (num_iter < 0):
         it = it + 1
-        
+
         for images, targets in gens():
             if( use_one_hot_encoding ):
                 n = len(targets)
