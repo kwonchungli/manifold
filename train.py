@@ -28,4 +28,3 @@ if __name__ == '__main__':
         #myVAE.restore_session(sess)
         #myVAE.train(sess)
        
-    

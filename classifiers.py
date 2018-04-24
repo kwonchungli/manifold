@@ -1,14 +1,91 @@
 import numpy as np
 import tensorflow as tf
+from tensorlayer.layers import InputLayer, Conv2dLayer, MaxPool2d, LocalResponseNormLayer, FlattenLayer, DenseLayer
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import OneHotEncoder
 import PIL.Image
 
-from attack_helpers import get_adv_dataset
+from attacks import get_adv_dataset
 import utils
 import attacks
+
+
+def celebA_classifier(ims, reuse):
+    with tf.variable_scope("C", reuse=reuse) as vs:
+        net = InputLayer(ims)
+        n_filters = 3
+        for i in range(2):
+            net = Conv2dLayer(net, \
+                    act=tf.nn.relu, \
+                    shape=[5,5,n_filters,64], \
+                    name="conv_" + str(i))
+            net = MaxPool2d(net, \
+                    filter_size=(3,3), \
+                    strides=(2,2), \
+                    name="mpool_" + str(i))
+            net = LocalResponseNormLayer(net, \
+                    depth_radius=4, \
+                    bias=1.0, \
+                    alpha=0.001 / 9.0, \
+                    beta=0.75, \
+                    name="lrn_" + str(i))
+            n_filters = 64
+        net = FlattenLayer(net)
+        net = DenseLayer(net, n_units=384, act=tf.nn.relu, name="d1")
+        net = DenseLayer(net, n_units=192, act=tf.nn.relu, name="d2")
+        net = DenseLayer(net, n_units=2, act=tf.identity, name="final")
+        cla_vars = tf.contrib.framework.get_variables(vs)
+        if not reuse:
+            return net.outputs, tf.argmax(net.outputs, axis=1), cla_vars
+    return net.outputs, tf.argmax(net.outputs, axis=1)
+
+def cifar10_classifier(im, reuse):
+    with tf.variable_scope('C', reuse=reuse) as vs:
+        net = InputLayer(im)
+        net = Conv2dLayer(net, \
+                act=tf.nn.relu, \
+                shape=[5,5,3,64], \
+                name="conv1")
+        net = MaxPool2d(net, \
+                filter_size=(3,3), \
+                strides=(2,2), \
+                name="pool1")
+        net = LocalResponseNormLayer(net, \
+                depth_radius=4, \
+                bias=1.0, \
+                alpha = 0.001/9.0, \
+                beta = 0.75, \
+                name="norm1")
+        net = Conv2dLayer(net, \
+                act=tf.nn.relu, \
+                shape=[5,5,64,64], \
+                name="conv2")
+        net = LocalResponseNormLayer(net, \
+                depth_radius=4, \
+                bias=1.0, \
+                alpha=0.001/9.0, \
+                beta = 0.75, \
+                name="norm2")
+        net = MaxPool2d(net, \
+                filter_size=(3,3), \
+                strides=(2,2), \
+                name="pool2")
+        net = FlattenLayer(net, name="flatten_1")
+        net = DenseLayer(net, n_units=384, name="local3", act=tf.nn.relu)
+        net = DenseLayer(net, n_units=192, name="local4", act=tf.nn.relu)
+        net = DenseLayer(net, n_units=10, name="softmax_linear", act=tf.identity)
+        cla_vars = tf.contrib.framework.get_variables(vs)
+        def name_fixer(var):
+            return var.op.name.replace("W", "weights") \
+                                .replace("b", "biases") \
+                                .replace("weights_conv2d", "weights") \
+                                .replace("biases_conv2d", "biases")
+        cla_vars = {name_fixer(var): var for var in cla_vars}
+        if not reuse:
+            return net.outputs, tf.argmax(net.outputs, axis=1), cla_vars
+        return net.outputs, tf.argmax(net.outputs, axis=1)
 
 def dnn_model_fn(x):
     dense1 = tf.layers.dense(inputs=x, units=10, activation=tf.nn.relu)
@@ -87,14 +164,14 @@ def eval_mnist_model(sess, x, y, dropout_rate, logits, adv_logits, test_epoch, a
         
         adv_avr += sess.run(adv_acc_op, feed_dict={myVAE.x_hat: adversarial_x, y: y_test, dropout_rate: 0.0})
         reconstr_avr += sess.run(accuracy_op, feed_dict={x: cleaned_x, y: y_test, dropout_rate: 0.0})
-        
+
         if( it % 10 == 3 ):
             test_pred = sess.run(logits, feed_dict={x: cleaned_x, y: y_test, dropout_rate: 0.0})
-            
+
             i1 = np.argmax(test_pred, 1)
             i2 = np.argmax(y_test, 1)
             index = np.where(np.not_equal(i1, i2))[0]
-            
+
             p_size = len(index)
             p_size = x_test.shape[0]
             wrong_x = x_test[:, :]
@@ -132,46 +209,8 @@ def get_train_op(logits, y, learning_rate):
 
 def train_model(sess, x, y, train_epoch, train_op, num_epochs, batch_size):
     train_gen = utils.batch_gen(train_epoch, True, y.shape[1], num_epochs)
-    
     for x_train, y_train in train_gen:
         sess.run(train_op, feed_dict={x: x_train, y: y_train})
 
-def main():
-    train_new_model = True
-    checkpoint_dir = '.chkpts/'
-    learning_rate = 0.001
-    num_epochs = 1
-    batch_size = 100
-    mnist = tf.contrib.learn.datasets.load_dataset("mnist")
-    x_train = mnist.train.images
-    y_train = np.asarray(mnist.train.labels, dtype=np.int32)
-    x_test = mnist.test.images
-    y_test = np.asarray(mnist.test.labels, dtype=np.int32)
-    y_train = make_one_hot(y_train)
-    y_test = make_one_hot(y_test)
-    
-    with tf.Session() as sess:
-        x = tf.placeholder(tf.float32, shape=[None, 784])
-        y = tf.placeholder(tf.int32, shape=[None, 10])
-        dropout_rate = tf.placeholder_with_default(0.4, shape=())
-        logits = cnn_model_fn(x, dropout_rate)
-        train_op = get_train_op(logits, y, learning_rate)
-        accuracy_op = get_accuracy_op(logits, y)
-        saver = tf.train.Saver()
-        if not train_new_model:
-            print 'restoring model'
-            restore_model(sess, saver, checkpoint_dir)
-        init = tf.global_variables_initializer()
-        sess.run(init)
-        if train_new_model:
-            print 'training model'
-            train_model(sess, x, y, x_train, y_train, train_op, num_epochs, batch_size)
-            save_model(sess, saver, checkpoint_dir)
-        eval_mnist_model(sess, x, y, dropout_rate, logits, x_test, y_test, accuracy_op, image_path='./results.png', name='testing')
-        adv_x_test = get_adv_dataset(sess, logits, x, y, x_test, y_test)
-        eval_mnist_model(sess, x, y, dropout_rate, logits, adv_x_test, y_test, accuracy_op, image_path='./adv_results.png', name='adv_testing')
-
 def get_batches(colls, batch_size):
     return apply(zip, [np.array_split(coll, batch_size) for coll in colls])
-    
-if __name__ == '__main__': main()

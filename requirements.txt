@@ -1,0 +1,2 @@
+tqdm==4.23.0
+tensorlayer==1.8.4

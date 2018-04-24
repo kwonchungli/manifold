@@ -1,61 +1,26 @@
-import numpy as np
-import utils
-import matplotlib
-import matplotlib.pyplot as plt
 import tensorflow as tf
-from AE_Framework import FIT_AE
+from generator_models import cifar_generator
+from classifiers import cifar10_classifier
+import numpy as np
 
-class FIT_AE_Swiss(FIT_AE): 
+class CIFAR10_AE(FIT_AE):
     def define_data_dir(self):
-        self.MODEL_DIRECTORY = "./model_AE/Swiss/"
-        
-    def __init__(self, exGAN):
-        self.data_func = utils.swiss_load
+        self.MODEL_DIRECTORY = "./model_AE/cifar10/"
+
+    def __init__(self):
+        self.data_func = utils.cifar10_load
         self.epsilon = 0.4
 
-        super(FIT_AE_Swiss, self).__init__(exGAN)
-
-    def get_image_dim(self):
-        return 2
-    def get_latent_dim(self):
-        return 1
-
-    def test_generate(self, sess, train_gen, n_samples = 64000, filename='images/samples.png'):
-        fig, ax = plt.subplots()
-
-        noises = self.noise_gen((n_samples, self.get_latent_dim()))
-        gen_points = sess.run(self.decoded,
-                                 feed_dict={self.z_in: noises})
-
-        plt.scatter(gen_points[:,0], gen_points[:,1], s=0.4, c='b', alpha=0.1)
-
-        for i in range(5):
-            batch, _ = next(train_gen)
-            rx, res = sess.run([self.rx, self.z], feed_dict={self.x_hat: batch, self.x: batch})
-            plt.scatter(batch[:5,0], batch[:5,1], s=10, c='r', alpha=1)
-            plt.scatter(rx[:5,0], rx[:5,1], s=10, c='g', alpha=1)
-
-        fig.savefig(filename)
-        plt.close()
-
-class FIT_AE_MNIST(FIT_AE):
-    def define_data_dir(self):
-        self.MODEL_DIRECTORY = "./model_AE/MNIST/"
-
-    def __init__(self, exGAN):
-        self.data_func = utils.MNIST_load
-        self.epsilon = 0.3
-        
         self.define_data_dir()
-        super(FIT_AE_MNIST, self).__init__(exGAN)
+        super(FIT_AE_CIFAR10, self).__init__(exGAN)
 
     def get_image_dim(self):
-        return 784
+        return 64*64
     def get_latent_dim(self):
-        return 15
+        return 128
 
     def add_noise(self, batch_xs):
-        noised = batch_xs + np.random.normal(self.epsilon/2, self.epsilon, size=batch_xs.shape)
+        noised = batch_xs + np.random.normal(self.epsilon/2, self.epsilon/2) * (np.random.randint(4, size=batch_xs.shape) - 1)
         noised = np.clip(noised, 0., 1.)
         return noised
 
@@ -73,7 +38,9 @@ class FIT_AE_MNIST(FIT_AE):
             # utils.save_images(proj_img.reshape(p_size, 28, 28), 'images/projection.png')
 
     def decoder(self, z, dim_img, n_hidden=256):
-        return self.exGAN.build_generator(z, reuse=True)
+      im = tf.placeholder(tf.float32,shape=[None,64,64,3])
+      gen_func, gen_vars = cifar_generator(z, reuse=False)
+      return gen_func
 
     # Gaussian MLP as encoder
     def gaussian_MLP_encoder(self, x, n_hidden=256, reuse=False):
@@ -102,20 +69,19 @@ class FIT_AE_MNIST(FIT_AE):
 
         return mean, stddev, z
 
-    # Gateway
     def autoencoder(self, x_hat, x, n_hidden=256, reuse=False):
-        # encoding
         mu, sigma, z = self.gaussian_MLP_encoder(x_hat, n_hidden, reuse)
+        y = self.decoder(mu)
+        return z, y
 
-        # decoding
-        y = self.exGAN.build_generator(mu, reuse=True)
-        
-        return mu, y
+    def restore_session(self, sess):
+      gen_saver = tf.train.Saver(gen_vars)
+      gen_saver.restore(sess,'Celeb_A/data/CelebA_gen/model.ckpt-102951')
 
-##########################################################################
-class FIT_AE_MNIST_V2(FIT_AE_MNIST):
-    def define_data_dir(self):
-        self.MODEL_DIRECTORY = "./model_AE/MNIST_lt3/"
+def cifar10_model_fn(x):
+  cla_func, preds, cla_vars = cifar10_classifier(x, reuse=False)
+  return cla_func
 
-    def get_latent_dim(self):
-        return 50
+def eval_cifar10_model():
+  cla_saver = tf.train.Saver(cla_vars)
+  cla_saver.restore(sess,'Celeb_A/data/CelebA_classifier/model-999') #tf.train.latest_checkpoint('/home/jaylewis/Desktop/Dimakis_Models/Celeb_A/data/CelebA_classifier/')
