@@ -1,0 +1,7 @@
+[FORMAT]
+# String used as indentation unit. This is usually "    " (4 spaces) or "\t" (1
+# tab).
+indent-string='    '
+
+[MESSAGES CONTROL]
+disable=multiple-statements,missing-docstring,invalid-name,too-many-arguments,too-many-locals
