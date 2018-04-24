@@ -151,20 +151,21 @@ class GAN(object):
         while( iterat < 1 ):
             sess.run(self.z_hat.assign(z0))
             #sess.run(self.z_hat.assign(np.random.normal(0, 1, size=(self.PROJ_BATCH_SIZE, self.get_latent_dim()))))
-            sess.run(self.proj_step.assign(0))    
+            sess.run(self.proj_step.assign(0))
             
             for i in range(self.PROJ_ITER):
                 _, cost = sess.run([self.proj_op, self.proj_loss], feed_dict={self.test_x: batch_x})
                 if( i % 50 == 0 ):
-                    print ('Projection Cost is : ', cost)
+                    print ('Projection Cost is :' , cost , 'z diff : ', np.linalg.norm(sess.run(self.z_hat[0]) - z0[0]))
                     
             if( cost < min_cost ):
                 min_cost = cost
                 proj_img = sess.run(self.out)
+                proj_z = sess.run(self.z_hat)
                 
             iterat = iterat + 1
         
-        return proj_img
+        return proj_img, proj_z
         
         
 """ WGAN Implementation Start """        
@@ -176,16 +177,16 @@ class WGAN(GAN):
     def define_learning_rate(self):
         self.train_step = tf.Variable(0)
         learning_rate = tf.train.exponential_decay(
-                3e-3,  # Base learning rate.
+                1e-3,  # Base learning rate.
                 self.train_step,  # Current index into the dataset.
-                1000,  # Decay step.
+                3000,  # Decay step.
                 0.95,  # Decay rate.
                 staircase=True)
         disc_rate = tf.train.exponential_decay(
-                1e-4,  # Base learning rate.
+                1e-3,  # Base learning rate.
                 self.train_step,  # Current index into the dataset.
-                2000,  # Decay step.
-                0.9,  # Decay rate.
+                3000,  # Decay step.
+                0.95,  # Decay rate.
                 staircase=True)
         return learning_rate, disc_rate
         
@@ -224,12 +225,16 @@ class WGAN(GAN):
             beta2=0.9
         ).minimize(disc_cost, var_list=self.disc_params)
 
+        self.gen_cost, self.disc_cost = gen_cost, disc_cost
         return disc_cost, gen_train_op, disc_train_op
+    
+    def get_train_gen(self, sess):
+        train_gen = utils.load_dataset(self.BATCH_SIZE, self.data_func)
+        return utils.batch_gen(train_gen)
     
     def train(self, session):
         # Dataset iterator
-        train_gen, _, _ = utils.load_dataset(self.BATCH_SIZE, self.data_func)
-        train_gen = utils.batch_gen(train_gen)
+        train_gen = self.get_train_gen(session)
         
         # cache variables
         disc_cost, gen_train_op, disc_train_op = self.disc_cost, self.gen_train_op, self.disc_train_op

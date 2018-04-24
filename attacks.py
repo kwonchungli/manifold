@@ -1,7 +1,41 @@
 import numpy as np
 import tensorflow as tf
 
+class LinfPGDAttack:
+    def __init__(self, obj, x, epsilon = 0.3, pgd_iter = 40, a = 0.01, random_start = False):
+        """Attack parameter initialization. The attack performs k steps of
+        size a, while always staying within epsilon from the initial
+        point."""
+        self.epsilon = epsilon
+        self.pgd_iter = pgd_iter
+        self.a = a
+        self.rand = random_start
 
+        self.grad = tf.gradients(obj, x)[0]
+
+    def perturb(self, x_nat, y, x_in, y_in, sess, plc_zin = None, z_in = None):
+        """Given a set of examples (x_nat, y), returns a set of adversarial
+           examples within epsilon of x_nat in l_infinity norm."""
+        if self.rand:
+            x = x_nat + np.random.uniform(-self.epsilon, self.epsilon, x_nat.shape)
+        else:
+            x = np.copy(x_nat)
+
+        feed_dict = {x_in:x_nat, y_in:y}
+        if( plc_zin != None ): feed_dict[plc_zin] = z_in
+        
+        for i in range(self.pgd_iter):
+            feed_dict = {x_in:x, y_in:y}
+            if( plc_zin != None ): feed_dict[plc_zin] = z_in
+                
+            grad = sess.run(self.grad, feed_dict=feed_dict)
+
+            x += self.a * np.sign(grad)
+            x = np.clip(x, x_nat - self.epsilon, x_nat + self.epsilon) 
+            x = np.clip(x, 0, 1) # ensure valid pixel range
+
+        return x
+    
 def model_loss(labels, model):
     op = model.op
     if op.type == "Softmax":
@@ -83,5 +117,5 @@ def fgm(x, preds, y=None, eps=0.3, ord=np.inf, clip_min=None, clip_max=None, tar
     # If clipping is needed, reset all values outside of [clip_min, clip_max]
     if (clip_min is not None) and (clip_max is not None):
         adv_x = tf.clip_by_value(adv_x, clip_min, clip_max)
-
+    
     return adv_x

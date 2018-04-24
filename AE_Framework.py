@@ -6,8 +6,11 @@ import tensorflow as tf
 
 class AE(object):
     def define_default_param(self):
-        self.BATCH_SIZE = 64
+        self.BATCH_SIZE = 128
         self.ITERS = 100001
+        
+    def define_saver(self):
+        self.saver = tf.train.Saver(var_list=self.enc_params + self.dec_params, max_to_keep=1)
         
     def __init__(self):
         self.define_default_param()
@@ -26,7 +29,7 @@ class AE(object):
         
         self.enc_params = [var for var in tf.trainable_variables() if 'encoder' in var.name]
         self.dec_params = [var for var in tf.trainable_variables() if 'decoder' in var.name]
-        self.saver = tf.train.Saver(var_list=self.enc_params + self.dec_params, max_to_keep=1)
+        self.define_saver()        
         
     def get_image_dim(self):
         return 0
@@ -125,6 +128,9 @@ class FIT_AE(AE):
         
         super(FIT_AE, self).__init__()
     
+    def define_saver(self):
+        self.saver = tf.train.Saver(var_list=self.enc_params, max_to_keep=1)
+        
     def decoder(self, z, dim_img, n_hidden=256):
         return self.exGAN.build_generator(z, reuse=True)
     
@@ -139,21 +145,26 @@ class FIT_AE(AE):
         return z, y
         
     def define_loss(self):
+        # reconstruction loss in X-space
         resconstruct_loss = tf.reduce_mean(tf.norm(self.rx - self.x, ord=2, axis=1))
         self.res_loss = resconstruct_loss
 
-        noisy_x = self.decoded + tf.random_normal(tf.shape(self.x), self.epsilon/2, self.epsilon, dtype=tf.float32)
+        # reconstruction loss in Z-space
+        noisy_x = self.decoded
+        noisy_x = noisy_x + tf.random_normal(tf.shape(noisy_x), self.epsilon/2, self.epsilon, dtype=tf.float32)
         self.rz = self.gaussian_MLP_encoder(tf.clip_by_value(noisy_x, 0, 1), reuse = True)
         self.res_loss_z = tf.reduce_mean(tf.norm(self.z_in - self.rz, ord=2, axis=1))
         
+        # get trainable params
         self.encode_params = [var for var in tf.trainable_variables() if 'encoder' in var.name]
         self.decode_params = self.exGAN.gen_params
         
+        # define loss & training operation
         self.global_step = tf.Variable(0)
-        loss = self.res_loss + self.res_loss_z * 10
+        loss = resconstruct_loss + self.res_loss_z * 10
         
         learning_rate = tf.train.exponential_decay(
-                1e-3,  # Base learning rate.
+                1e-4,  # Base learning rate.
                 self.global_step,  # Current index into the dataset.
                 5000,  # Decay step.
                 0.96,  # Decay rate.
@@ -181,13 +192,13 @@ class FIT_AE(AE):
             batch_xs, _ = next(train_gen)
             batch_noise = self.add_noise(batch_xs)
 
-            _, rs_loss = sess.run(
-                (self.en_train_op, self.res_loss),
+            _, rs_loss, rz_loss = sess.run(
+                (self.en_train_op, self.res_loss, self.res_loss_z),
                 feed_dict={self.z_in: self.noise_gen(noise_size), self.x_hat: batch_noise, self.x: batch_xs})
 
             # Calculate dev loss and generate samples every 1000 iters
             if iteration % 1000 == 10:
-                print ('at iteration : ', iteration, ' loss : ', rs_loss)
+                print ('at iteration : ', iteration, ' loss : ', rs_loss, ', z_loss : ', rz_loss)
                 self.test_generate(sess, train_gen, filename='images/train_samples.png')
                 
             if( iteration % 10000 == 9999 ):
@@ -196,6 +207,16 @@ class FIT_AE(AE):
                 self.saver.export_meta_graph(self.MODEL_DIRECTORY+'checkpoint-'+str(iteration)+'.meta')
 
     def autoencode_dataset(self, sess, adversarial_x):
-        rx, rz = sess.run([self.rx, self.z], feed_dict={self.x_hat: adversarial_x, self.x: adversarial_x})
-        #proj_img = self.exGAN.find_proj(sess, adversarial_x, rz)
-        return rx
+        i = 0
+        batch_size = adversarial_x.shape[0]
+        proj_img, proj_z = [], []
+        while( i < batch_size ):
+            ni = i + self.exGAN.PROJ_BATCH_SIZE
+            rx, rz = sess.run([self.rx, self.z], feed_dict={self.x_hat: adversarial_x[i:ni, :]})
+            rx, rz = self.exGAN.find_proj(sess, adversarial_x[i:ni, :], rz)
+            
+            i = ni
+            proj_img.append(rx)
+            proj_z.append(rz)
+            
+        return np.vstack(proj_img), np.vstack(proj_z)

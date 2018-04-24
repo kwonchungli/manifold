@@ -6,9 +6,11 @@ import tensorflow as tf
 from AE_Framework import FIT_AE
 
 class FIT_AE_Swiss(FIT_AE): 
+    def define_data_dir(self):
+        self.MODEL_DIRECTORY = "./model_AE/Swiss/"
+        
     def __init__(self, exGAN):
         self.data_func = utils.swiss_load
-        self.MODEL_DIRECTORY = "./model_AE/Swiss/"
         self.epsilon = 0.4
         
         super(FIT_AE_Swiss, self).__init__(exGAN)
@@ -42,7 +44,7 @@ class FIT_AE_MNIST(FIT_AE):
         
     def __init__(self, exGAN):
         self.data_func = utils.MNIST_load
-        self.epsilon = 0.4
+        self.epsilon = 0.3
         
         self.define_data_dir()
         super(FIT_AE_MNIST, self).__init__(exGAN)
@@ -53,7 +55,7 @@ class FIT_AE_MNIST(FIT_AE):
         return 15
         
     def add_noise(self, batch_xs):
-        noised = batch_xs + np.random.normal(self.epsilon/2, self.epsilon/2) * (np.random.randint(4, size=batch_xs.shape) - 1)
+        noised = batch_xs + np.random.normal(self.epsilon/2, self.epsilon, size=batch_xs.shape)
         noised = np.clip(noised, 0., 1.)
         return noised
     
@@ -108,7 +110,7 @@ class FIT_AE_MNIST(FIT_AE):
         # decoding
         y = self.exGAN.build_generator(mu, reuse=True)
         
-        return z, y
+        return mu, y
 
 ##########################################################################
 class FIT_AE_MNIST_V2(FIT_AE_MNIST):

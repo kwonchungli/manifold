@@ -10,6 +10,13 @@ import cPickle as pickle
 import PIL.Image
 
 from scipy.misc import imsave
+from download import *
+
+def CelebA_load():
+    base_path = './data'
+    prepare_data_dir()
+    download_celeb_a(base_path)
+    add_splits(base_path)
 
 def MNIST_load():
     filepath = './data/mnist.pkl.gz'
@@ -30,8 +37,8 @@ def MNIST_load():
         
     tr_image, tr_label = train_data
     ts_image, ts_label = test_data
-    shuffle(tr_image, tr_label)
-    shuffle(ts_image, ts_label)
+    #shuffle(tr_image, tr_label)
+    #shuffle(ts_image, ts_label)
     
     return (tr_image, tr_label, ts_image, ts_label)
 
@@ -55,7 +62,7 @@ def save_images(X, save_path):
 
     if X.ndim == 4:
         # BCHW -> BHWC
-        X = X.transpose(0,2,3,1)
+        # X = X.transpose(0,2,3,1)
         h, w = X[0].shape[:2]
         img = np.zeros((h*nh, w*nw, 3))
     elif X.ndim == 3:
@@ -140,6 +147,7 @@ def load_dataset(batch_size, load_func):
     
     def test_epoch():
         tot_len = test_data.shape[0]
+        #i = 0
         i = np.random.randint(0, test_size)
         while(i + test_size < tot_len):
             yield (np.copy(test_data[i:i+test_size, :]), np.copy(test_target[i:i+test_size]))

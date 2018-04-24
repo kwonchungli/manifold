@@ -9,11 +9,12 @@ import pickle
 
 from GAN_Network import *
 from AE_Network import *
+from F_AAE import *
 
 
 if __name__ == '__main__':
-    myGAN = WGAN_MNIST_V2()
-    myVAE = FIT_AE_MNIST_V2(myGAN)
+    myGAN = WGAN_CelebA()
+    #myVAE = FIT_AE_CelebA(myGAN)
     
     init = tf.global_variables_initializer()
     config = tf.ConfigProto()
@@ -24,6 +25,7 @@ if __name__ == '__main__':
         
         myGAN.restore_session(sess)
         myGAN.train(sess)
-        myVAE.train(sess)
+        #myVAE.restore_session(sess)
+        #myVAE.train(sess)
        
     
