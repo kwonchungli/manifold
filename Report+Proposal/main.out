@@ -1,0 +1,10 @@
+\BOOKMARK [1][-]{section.1}{Synopsis}{}% 1
+\BOOKMARK [1][-]{section.2}{Background}{}% 2
+\BOOKMARK [2][-]{subsection.2.1}{Notation}{section.2}% 3
+\BOOKMARK [2][-]{subsection.2.2}{Adversarial Attacks and Training}{section.2}% 4
+\BOOKMARK [1][-]{section.3}{Invert and Classify Defense}{}% 5
+\BOOKMARK [1][-]{section.4}{Attacking INC}{}% 6
+\BOOKMARK [2][-]{subsection.4.1}{Preliminary Results}{section.4}% 7
+\BOOKMARK [2][-]{subsection.4.2}{Paths Forward}{section.4}% 8
+\BOOKMARK [1][-]{section.5}{Using Fitted Encoder to Improve INC}{}% 9
+\BOOKMARK [2][-]{subsection.5.1}{Learned Encoder vs. Projection}{section.5}% 10
