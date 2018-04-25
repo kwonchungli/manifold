@@ -32,10 +32,12 @@ def cifar10_load():
     for batch in batches:
         with open(path + batch, 'rb') as file_handle:
             batch_data = pickle.load(file_handle)
+            batch_data['data'] = (batch_data['data'] / 255.0)
             data.append(batch_data['data'])
             targets.append(batch_data['labels'])
     with open(path + 'test_batch') as file_handle:
         batch_data = pickle.load(file_handle)
+        batch_data['data'] = (batch_data['data'] / 255.0)
         return np.vstack(data), np.concatenate(targets), batch_data['data'], batch_data['labels']
 
 def MNIST_load():
@@ -73,10 +75,12 @@ def save_images(X, save_path):
 
     if X.ndim == 2:
         X = np.reshape(X, (X.shape[0], int(np.sqrt(X.shape[1])), int(np.sqrt(X.shape[1]))))
-
+    
     if X.ndim == 4:
         # BCHW -> BHWC
-        # X = X.transpose(0,2,3,1)
+        if( X.shape[1] == 3 ):
+            X = X.transpose(0,2,3,1)
+            
         h, w = X[0].shape[:2]
         img = np.zeros((h*nh, w*nw, 3))
     elif X.ndim == 3:
