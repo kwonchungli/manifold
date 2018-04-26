@@ -30,7 +30,7 @@ class AE(object):
         self.enc_params = [var for var in tf.trainable_variables() if 'encoder' in var.name]
         self.dec_params = [var for var in tf.trainable_variables() if 'decoder' in var.name]
         
-        self.define_saver()        
+        self.define_saver()
         
     def get_image_dim(self):
         return 0
@@ -134,7 +134,8 @@ class FIT_AE(AE):
         self.saver = tf.train.Saver(var_list=self.enc_params, max_to_keep=1)
 
     def decoder(self, z, dim_img, n_hidden=256):
-        return self.exGAN.build_generator(z, reuse=True)
+        y, _ = self.exGAN.build_generator(z, reuse=True)
+        return y
 
     # Gateway
     def autoencoder(self, x_hat, x, n_hidden=256, reuse=False):
@@ -142,7 +143,7 @@ class FIT_AE(AE):
         mu, sigma, z = self.gaussian_MLP_encoder(x_hat, n_hidden, reuse)
 
         # decoding
-        y = self.exGAN.build_generator(mu, reuse=True)
+        y, _ = self.exGAN.build_generator(mu, reuse=True)
 
         return z, y
 
