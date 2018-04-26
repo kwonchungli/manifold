@@ -23,14 +23,12 @@ class GAN(object):
         self.z_in = tf.placeholder(tf.float32, shape=[None, self.get_latent_dim()], name='latent_variable')
         self.data = tf.placeholder(tf.float32, shape=[None, self.get_image_dim()])
 
-        self.Generator = self.build_generator(self.z_in)
+        self.Generator, self.gen_params = self.build_generator(self.z_in)
         self.Discriminator_fake = self.build_discriminator(self.Generator)
         self.Discriminator_real = self.build_discriminator(self.data, True)
 
-        self.define_proj()
-
-        self.gen_params = [var for var in tf.trainable_variables() if 'Generator' in var.name]
         self.disc_params = [var for var in tf.trainable_variables() if 'Discriminator' in var.name]
+        self.define_proj()
 
         self.disc_cost, self.gen_train_op, self.disc_train_op = self.define_loss()
         self.saver = tf.train.Saver(var_list=self.gen_params + self.disc_params, max_to_keep=1)
@@ -61,61 +59,6 @@ class GAN(object):
     def get_latent_dim(self):
         return 0
 
-
-    #
-    #
-    #
-    #
-    #
-    #
-    # Default Generator - Decoder
-    def build_generator(self, z = None, reuse = False):
-        n_hidden = 256
-
-        with tf.variable_scope("Generator", reuse=reuse):
-            # initializers
-            w_init = tf.contrib.layers.variance_scaling_initializer()
-            b_init = tf.constant_initializer(0.01)
-
-            # 1st hidden layer
-            w0 = tf.get_variable('w0', [z.get_shape()[1], n_hidden], initializer=w_init)
-            b0 = tf.get_variable('b0', [n_hidden], initializer=b_init)
-            h0 = tf.matmul(z, w0) + b0
-            h0 = utils.LeakyReLU(h0)
-
-            # 2nd hidden layer
-            w1 = tf.get_variable('w1', [h0.get_shape()[1], n_hidden], initializer=w_init)
-            b1 = tf.get_variable('b1', [n_hidden], initializer=b_init)
-            h1 = tf.matmul(h0, w1) + b1
-            h1 = utils.LeakyReLU(h1)
-
-            # output layer-mean
-            l2 = tf.layers.dense(h1, n_hidden)
-            l2 = utils.LeakyReLU(l2)
-
-            y = tf.layers.dense(l2, self.get_image_dim())
-
-        return y
-
-    def build_discriminator(self, inputs, reuse = False):
-        with tf.variable_scope("Discriminator", reuse=reuse):
-            # Hidden fully connected layer with 256 neurons
-            layer_1 = tf.layers.dense(inputs, 256)
-            layer_1 = tf.nn.relu(layer_1)
-
-            layer_2 = tf.layers.dense(layer_1, 256)
-            layer_2 = tf.nn.relu(layer_2)
-
-            layer_3 = tf.layers.dense(layer_2, 256)
-            layer_3 = tf.nn.relu(layer_3)
-
-            layer_4 = tf.layers.dense(layer_3, 256)
-            layer_4 = tf.nn.relu(layer_4)
-
-            output = tf.layers.dense(layer_4, 1)
-
-        return tf.reshape(output, [-1])
-
     #
     #
     #
@@ -128,7 +71,7 @@ class GAN(object):
     def define_proj(self):
         self.test_x = tf.placeholder(tf.float32, shape=[self.PROJ_BATCH_SIZE, self.get_image_dim()])
         self.z_hat = tf.get_variable('z_hat', shape=[self.PROJ_BATCH_SIZE, self.get_latent_dim()], dtype=tf.float32)
-        self.out = self.build_generator(self.z_hat, True)
+        self.out, _ = self.build_generator(self.z_hat, True)
 
         self.proj_loss = tf.reduce_mean(tf.square(self.out - self.test_x))
         self.proj_step = tf.Variable(0)
@@ -167,10 +110,8 @@ class GAN(object):
             iterat = iterat + 1
         
         return proj_img, proj_z
-        
 
 """ WGAN Implementation Start """
-
 class WGAN(GAN):
     def __init__(self):
         self.LAMBDA = .1 # Gradient penalty lambda hyperparameter
@@ -230,14 +171,9 @@ class WGAN(GAN):
         self.gen_cost, self.disc_cost = gen_cost, disc_cost
         return disc_cost, gen_train_op, disc_train_op
 
-    
     def get_train_gen(self, sess):
-        train_gen = utils.load_dataset(self.BATCH_SIZE, self.data_func)
+        train_gen, _, _ = utils.load_dataset(self.BATCH_SIZE, self.data_func)
         return utils.batch_gen(train_gen)
-    
-    def train(self, session):
-        # Dataset iterator
-        train_gen = self.get_train_gen(session)
         
 
     def train(self, session):
