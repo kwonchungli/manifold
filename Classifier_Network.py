@@ -61,9 +61,9 @@ class Classifier(object):
             #adversarial_x = get_adv_dataset(sess, adv_logits, myVAE.x_hat, y, x_test, y_test)
 
             #_, z_in = myVAE.autoencode_dataset(sess, x_test)
-            #adversarial_x = attack.perturb(x_test, y_test, myVAE.x_hat, y, sess, dropout_rate, myVAE.z_in, z_in)
-            adversarial_x = attack.perturb(x_test, y_test, x, y, sess, self.inf_norm)
-            #adversarial_x = attack.perturb(x_test, y_test, myVAE.x_hat, y, sess, dropout_rate)
+            #adversarial_x = attack.perturb(x_test, y_test, myVAE.x_hat, y, sess, myVAE.z_in, z_in)
+            adversarial_x = attack.perturb(x_test, y_test, x, y, sess)
+            #adversarial_x = attack.perturb(x_test, y_test, myVAE.x_hat, y, sess)
             #cleaned_x, z_res = myVAE.autoencode_dataset(sess, adversarial_x)
 
             #print ('compare z vs z : ', (z_in[0] - z_res[0]), np.linalg.norm(z_in[0] - z_res[0]))
@@ -90,7 +90,7 @@ class Classifier(object):
                 utils.save_images(wrong_x.reshape(p_size, 3, 32, 32), 'images/cl_original.png')
                 utils.save_images(wrong_adv.reshape(p_size, 3, 32, 32), 'images/cl_adversarial.png')
                 #utils.save_images(wrong_res.reshape(p_size, 32, 32), 'images/cl_reconstr.png')
-
+                
         print ("------------ Test ----------------")
         print("Normal Accuracy:", normal_avr / it)
         print("Normal Adversarial Accuracy:", adv_avr_ref / it)
@@ -131,7 +131,7 @@ class Classifier(object):
     
     def train(self, sess):
         # Dataset iterator
-        train_gen = self.get_train_gen(sess, 100)
+        train_gen = self.get_train_gen(sess, 50)
         
         it = 0
         for x_train, y_train in train_gen:
@@ -168,11 +168,7 @@ class Classifier_CIFAR10(Classifier):
         self.data_func = utils.cifar10_load
 
         super(Classifier_CIFAR10, self).__init__(inf_norm, myVAE, batch_size)
-        
-    def restore_model(sess, saver):
-        ckpt = tf.train.get_checkpoint_state(self.filepath)
-        saver.restore(sess, ckpt.model_checkpoint_path)
-        
+     
     def build_classifier(self, im, inf_norm, reuse=False):
         with tf.variable_scope('C', reuse=reuse) as vs:
             x = tf.reshape(im, [-1, 3, 32, 32])
@@ -228,4 +224,9 @@ class Classifier_CIFAR10(Classifier):
                                     .replace("biases_conv2d", "biases")
             cla_vars = {name_fixer(var): var for var in cla_vars}
             return net.outputs, cla_vars
-        
+
+class Classifier_CIFAR10_Robust(Classifier_CIFAR10):
+    def restore_session(self, sess):
+        ckpt = tf.train.get_checkpoint_state(self.filepath)
+        self.saver.restore(sess, ckpt.model_checkpoint_path)
+       
