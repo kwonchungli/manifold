@@ -49,4 +49,3 @@ if __name__ == '__main__':
         
         print('testing model')
         myClass.eval_model(sess)
-        

@@ -242,10 +242,7 @@ class FIT_AE_MINMAX(FIT_AE):
         # self.res_loss = resconstruct_loss
 
         # reconstruction loss in Z-space (noisy)
-        noisy_x = self.decoded
-        noisy_x = noisy_x + tf.random_normal(tf.shape(noisy_x), self.epsilon / 2, self.epsilon, dtype=tf.float32)
-        self.rz = self.gaussian_MLP_encoder(tf.clip_by_value(noisy_x, 0, 1), reuse=True)
-        self.res_loss_z = tf.reduce_mean(tf.norm(self.z_projection - self.rz, ord=2, axis=1))
+        self.res_loss_z = tf.reduce_mean(tf.norm(self.z_projection - self.z, ord=2, axis=1))
 
         #----------------------------------------
 
@@ -305,8 +302,8 @@ class FIT_AE_MINMAX(FIT_AE):
             # _,zstar = self.exGAN.find_proj(sess, batch_noise, z0=z0)
             _,zstar = self.autoencode_dataset(sess,batch_noise)
 
-            _, rs_loss, rz_loss = sess.run(
-                (self.en_train_op, self.res_loss, self.res_loss_z),
+            _, rz_loss = sess.run(
+                (self.en_train_op, self.res_loss_z),
                 feed_dict={self.z_in: self.noise_gen(noise_size),
                            self.x_hat: batch_noise,
                            self.x: batch_xs,
@@ -314,7 +311,8 @@ class FIT_AE_MINMAX(FIT_AE):
 
             # Calculate dev loss and generate samples every 1000 iters
             if iteration % 1000 == 10:
-                print ('at iteration : ', iteration, ' loss : ', rs_loss, ', z_loss : ', rz_loss)
+                # print ('at iteration : ', iteration, ' loss : ', rs_loss, ', z_loss : ', rz_loss)
+                print ('at iteration : ', iteration, ', z_loss : ', rz_loss)
                 self.test_generate(sess, train_gen, filename='images/train_samples.png')
 
             if (iteration % 10000 == 9999):

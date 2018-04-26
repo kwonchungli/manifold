@@ -160,7 +160,8 @@ class FIT_AE_MNIST_MINMAX(FIT_AE_MINMAX):
             # utils.save_images(proj_img.reshape(p_size, 28, 28), 'images/projection.png')
 
     def decoder(self, z, dim_img, n_hidden=256):
-        return self.exGAN.build_generator(z, reuse=True)
+        y, _ = self.exGAN.build_generator(z, reuse=True)
+        return y
 
     # Gaussian MLP as encoder
     def gaussian_MLP_encoder(self, x, n_hidden=256, reuse=False):
@@ -197,7 +198,7 @@ class FIT_AE_MNIST_MINMAX(FIT_AE_MINMAX):
         mu, sigma, z = self.gaussian_MLP_encoder(x_hat, n_hidden, reuse)
 
         # decoding
-        y = self.exGAN.build_generator(mu, reuse=True)
+        y, _ = self.exGAN.build_generator(mu, reuse=True)
 
         return mu, y
 
