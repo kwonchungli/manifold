@@ -1,3 +1,13 @@
+from tensorlayer.layers import *
+from generator_utils import *
+slim = tf.contrib.slim
+
+import tflib as lib
+import tflib.ops.linear as linear
+import tflib.ops.conv2d as conv2d
+import tflib.ops.batchnorm as batchnorm
+import tflib.ops.deconv2d as deconv2d
+
 import numpy as np
 from GAN_Framework import WGAN
 import utils
@@ -55,7 +65,7 @@ class WGAN_Swiss(WGAN):
     
     def build_discriminator(self, inputs, reuse = False):
         n_hidden = 256
-        with tf.variable_scope("Discriminator", reuse=reuse):
+        with tf.variable_scope("Discriminator", reuse=reuse) as vs:
             # Hidden fully connected layer with 256 neurons
             layer_1 = tf.layers.dense(inputs, n_hidden)
             layer_1 = utils.LeakyReLU(layer_1, alpha=0.01)
@@ -65,6 +75,7 @@ class WGAN_Swiss(WGAN):
             
             output = tf.layers.dense(layer_2, 1)
         
+        variables = tf.contrib.framework.get_variables(vs)
         return tf.reshape(output, [-1])
     
     def define_learning_rate(self):
@@ -150,7 +161,7 @@ class WGAN_MNIST(WGAN):
     
     # G(z)
     def build_generator(self, z, reuse=False):
-        with tf.variable_scope('Generator', reuse=reuse):
+        with tf.variable_scope('Generator', reuse=reuse) as vs:
             output = tf.layers.dense(z, 6*6*self.get_latent_dim())
             output = utils.LeakyReLU(output)
             
@@ -162,11 +173,12 @@ class WGAN_MNIST(WGAN):
             output = tf.layers.conv2d_transpose(output, 1, 2, strides=2)
             output = tf.nn.sigmoid(output)
             
-        return tf.reshape(output, [-1, self.get_image_dim()])
+        variables = tf.contrib.framework.get_variables(vs)
+        return tf.reshape(output, [-1, self.get_image_dim()]), variables
 
     # D(x)
     def build_discriminator(self, x, reuse=False):
-        with tf.variable_scope('Discriminator', reuse=reuse):
+        with tf.variable_scope('Discriminator', reuse=reuse) as vs:
             output = tf.reshape(x, [-1, 28, 28, 1])
 
             output = tf.layers.conv2d(output, 128, 5)
@@ -184,6 +196,7 @@ class WGAN_MNIST(WGAN):
             output = utils.LeakyReLU(output)
             output = tf.layers.dense(output, 1)
             
+        variables = tf.contrib.framework.get_variables(vs)
         return tf.reshape(output, [-1])
     
     def test_generate(self, sess, n_samples = 512, filename='images/samples.png'):
@@ -207,7 +220,6 @@ class WGAN_MNIST_V2(WGAN_MNIST):
     def get_latent_dim(self):
         return 50
     
-    
 ########################################################################3
 class WGAN_CelebA(WGAN):
     def define_default_param(self):
@@ -220,6 +232,9 @@ class WGAN_CelebA(WGAN):
     def define_data_dir(self):
         self.MODEL_DIRECTORY = "./model_WGAN/CelebA/"
         
+    def restore_session(self, sess):
+        self.saver.restore(sess, './PreModel/Dimakis_Models/Celeb_A/data/CelebA_gen/model.ckpt-102951')
+
     def __init__(self):
         self.data_func = utils.CelebA_load
         self.define_data_dir()
@@ -231,7 +246,6 @@ class WGAN_CelebA(WGAN):
         #return np.random.uniform(0, 10, size=noise_size).astype('float32')
     
     def get_train_gen(self, sess):
-        #self.data_func()
         import data_loader as dl
         import PIL
         paths = dl.get_loader('./data/CelebA', self.BATCH_SIZE, 64, 'NHWC', 'train')
@@ -256,31 +270,37 @@ class WGAN_CelebA(WGAN):
 
         return batch_gen()
     
+    def train(self, session):
+        print 'Bad Thing Happens!!!'
+        Hahahahahahahahahaha
+    
     # G(z)
     def build_generator(self, z, reuse=False):
-        with tf.variable_scope('Generator', reuse=reuse):
-            output = tf.layers.dense(z, 11*11*self.get_latent_dim())
-            output = utils.LeakyReLU(output)
+        hidden_num, output_num, repeat_num, data_format = 128, 3, 4, 'NCHW'
+        
+        with tf.variable_scope("G", reuse=reuse) as vs:
+            num_output = int(np.prod([8, 8, hidden_num]))
+            x = slim.fully_connected(z, num_output, activation_fn=None)
+            x = reshape(x, 8, 8, hidden_num, data_format)
+            for idx in range(repeat_num):
+                x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+                x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+                if idx < repeat_num - 1:
+                    x = upscale(x, 2, data_format)
+            out = slim.conv2d(x, 3, 3, 1, activation_fn=None, data_format=data_format)
+            out = tf.nn.sigmoid(out)
+            out = tf.transpose(out, [0, 2, 3, 1])
             
-            output = tf.reshape(output, [-1, 11, 11, self.get_latent_dim()])
-            
-            output = tf.layers.conv2d_transpose(output, 64, 4, strides=1)
-            output = utils.LeakyReLU(output)
-            
-            output = tf.layers.conv2d_transpose(output, 32, 4, strides=2)
-            output = utils.LeakyReLU(output)
-            
-            output = tf.layers.conv2d_transpose(output, 16, 2, strides=1)
-            output = utils.LeakyReLU(output)
-            
-            output = tf.layers.conv2d_transpose(output, 3, 4, strides=2)
-            output = tf.nn.sigmoid(output)
-            
-        return tf.reshape(output, [-1, self.get_image_dim()])
+        variables = tf.contrib.framework.get_variables(vs)
+        out = tf.reshape(out, [-1, self.get_image_dim()])
+        return out, variables
 
     # D(x)
+    def define_loss(self):
+        return 0, 0, 0
+    
     def build_discriminator(self, x, reuse=False):
-        with tf.variable_scope('Discriminator', reuse=reuse):
+        with tf.variable_scope('Dummy', reuse=reuse) as vs:
             output = tf.reshape(x, [-1, 64, 64, 3])
 
             output = tf.layers.conv2d(output, 128, 4, strides = 2)
@@ -297,16 +317,16 @@ class WGAN_CelebA(WGAN):
 
             output = utils.LeakyReLU(output)
             output = tf.layers.dense(output, 1)
-            
+           
         return tf.reshape(output, [-1])
     
-    def test_generate(self, sess, n_samples = 512, filename='images/samples.png'):
+    def test_generate(self, sess, n_samples = 128, filename='images/samples.png'):
         noises = self.noise_gen((n_samples,self.get_latent_dim()))
         samples = sess.run(self.Generator, feed_dict={self.z_in: noises})
         
         utils.save_images(samples.reshape(n_samples, 64, 64, 3), filename)
         
     def get_latent_dim(self):
-        return 100
+        return 128
     def get_image_dim(self):
         return 12288
