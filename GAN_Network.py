@@ -310,3 +310,14 @@ class WGAN_CelebA(WGAN):
         return 100
     def get_image_dim(self):
         return 12288
+
+###########################################################################
+##########################################################################
+
+class WGAN_MNIST_MINMAX(WGAN_MNIST):
+    def define_default_param(self):
+        self.BATCH_SIZE = 128
+        self.ITERS = 50001
+        self.CRITIC_ITERS = 5
+        self.PROJ_ITER = 150
+        self.PROJ_BATCH_SIZE = 128

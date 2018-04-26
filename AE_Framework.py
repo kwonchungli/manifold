@@ -45,6 +45,7 @@ class AE(object):
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
         self.saver.restore(sess, ckpt.model_checkpoint_path)
 
+
     # Gaussian MLP as encoder
     def gaussian_MLP_encoder(self, x, n_hidden=256, reuse=False):
         with tf.variable_scope("gaussian_MLP_encoder", reuse=reuse):
@@ -128,10 +129,10 @@ class FIT_AE(AE):
         self.exGAN = exGAN
 
         super(FIT_AE, self).__init__()
-        
+
     def define_saver(self):
         self.saver = tf.train.Saver(var_list=self.enc_params, max_to_keep=1)
-        
+
     def decoder(self, z, dim_img, n_hidden=256):
         return self.exGAN.build_generator(z, reuse=True)
 
@@ -155,15 +156,15 @@ class FIT_AE(AE):
         noisy_x = noisy_x + tf.random_normal(tf.shape(noisy_x), self.epsilon/2, self.epsilon, dtype=tf.float32)
         self.rz = self.gaussian_MLP_encoder(tf.clip_by_value(noisy_x, 0, 1), reuse = True)
         self.res_loss_z = tf.reduce_mean(tf.norm(self.z_in - self.rz, ord=2, axis=1))
-        
+
         # get trainable params
         self.encode_params = [var for var in tf.trainable_variables() if 'encoder' in var.name]
         self.decode_params = self.exGAN.gen_params
-        
+
         # define loss & training operation
         self.global_step = tf.Variable(0)
         loss = resconstruct_loss + self.res_loss_z * 10
-        
+
         learning_rate = tf.train.exponential_decay(
                 1e-4,  # Base learning rate.
                 self.global_step,  # Current index into the dataset.
@@ -215,9 +216,122 @@ class FIT_AE(AE):
             ni = i + self.exGAN.PROJ_BATCH_SIZE
             rx, rz = sess.run([self.rx, self.z], feed_dict={self.x_hat: adversarial_x[i:ni, :]})
             rx, rz = self.exGAN.find_proj(sess, adversarial_x[i:ni, :], rz)
-            
+
             i = ni
             proj_img.append(rx)
             proj_z.append(rz)
-            
+
+        return np.vstack(proj_img), np.vstack(proj_z)
+
+
+##########################################################
+class FIT_AE_MINMAX(FIT_AE):
+    def __init__(self, exGAN):
+        self.LAMBDA = 5
+        self.exGAN = exGAN
+        self.z_projection = tf.placeholder(tf.float32, shape=[self.exGAN.PROJ_BATCH_SIZE, self.get_latent_dim()], name='z_projection')
+        self.MODEL_SAVE_DIRECTORY = './model_AE/MNIST_MINMAX/'
+
+        super(FIT_AE_MINMAX, self).__init__(exGAN)
+
+    def define_loss(self):
+
+        # reconstruction loss in X-space (noisy)
+        # resconstruct_loss = tf.reduce_mean(tf.norm(self.rx - self.x, ord=2, axis=1))
+        # self.res_loss = resconstruct_loss
+
+        # reconstruction loss in Z-space (noisy)
+        noisy_x = self.decoded
+        noisy_x = noisy_x + tf.random_normal(tf.shape(noisy_x), self.epsilon / 2, self.epsilon, dtype=tf.float32)
+        self.rz = self.gaussian_MLP_encoder(tf.clip_by_value(noisy_x, 0, 1), reuse=True)
+        self.res_loss_z = tf.reduce_mean(tf.norm(self.z_projection - self.rz, ord=2, axis=1))
+
+        #----------------------------------------
+
+        # # reconstruction loss in X-space (MinMax)
+        # resconstruct_loss = tf.reduce_mean(tf.norm(self.rx - self.x, ord=2, axis=1))
+        # self.res_loss = resconstruct_loss
+        #
+        # # reconstruction loss in Z-space (MinMax)
+        # noisy_x = self.decoded
+        # noisy_x = noisy_x + tf.random_normal(tf.shape(noisy_x), self.epsilon / 2, self.epsilon, dtype=tf.float32)
+        # self.rz = self.gaussian_MLP_encoder(tf.clip_by_value(noisy_x, 0, 1), reuse=True)
+        # self.res_loss_z = tf.reduce_mean(tf.norm(self.z_projection - self.rz, ord=2, axis=1))
+
+        # ----------------------------------------
+
+        # get trainable params
+        self.encode_params = [var for var in tf.trainable_variables() if 'encoder' in var.name]
+        self.decode_params = self.exGAN.gen_params
+
+        # define loss & training operation
+        self.global_step = tf.Variable(0)
+
+        # For now, forget about reconstruction loss
+        # loss = resconstruct_loss + self.res_loss_z * 10
+        loss = self.res_loss_z
+
+        learning_rate = tf.train.exponential_decay(
+            1e-4,  # Base learning rate.
+            self.global_step,  # Current index into the dataset.
+            5000,  # Decay step.
+            0.96,  # Decay rate.
+            staircase=True)
+        self.en_train_op = tf.train.AdamOptimizer(
+            learning_rate=learning_rate,
+            beta1=0.5,
+            beta2=0.9,
+            name="auto").minimize(loss, var_list=self.encode_params, global_step=self.global_step)
+
+        return loss, None
+
+    def add_noise(self, batch_xs):
+        return batch_xs + np.random.normal(0, self.epsilon, size=batch_xs.shape)
+
+    def train(self, sess):
+        # Dataset iterator
+        train_gen, _, _ = utils.load_dataset(self.BATCH_SIZE, self.data_func)
+
+        noise_size = (self.BATCH_SIZE, self.get_latent_dim())
+        train_gen = utils.batch_gen(train_gen)
+
+        # Train loop
+        for iteration in range(self.ITERS):
+            batch_xs, _ = next(train_gen)
+            batch_noise = self.add_noise(batch_xs)
+
+            # z0 = self.exGAN.noise_gen([self.exGAN.PROJ_BATCH_SIZE,self.exGAN.get_latent_dim()])
+            # _,zstar = self.exGAN.find_proj(sess, batch_noise, z0=z0)
+            _,zstar = self.autoencode_dataset(sess,batch_noise)
+
+            _, rs_loss, rz_loss = sess.run(
+                (self.en_train_op, self.res_loss, self.res_loss_z),
+                feed_dict={self.z_in: self.noise_gen(noise_size),
+                           self.x_hat: batch_noise,
+                           self.x: batch_xs,
+                           self.z_projection: zstar})
+
+            # Calculate dev loss and generate samples every 1000 iters
+            if iteration % 1000 == 10:
+                print ('at iteration : ', iteration, ' loss : ', rs_loss, ', z_loss : ', rz_loss)
+                self.test_generate(sess, train_gen, filename='images/train_samples.png')
+
+            if (iteration % 10000 == 9999):
+                print 'Saving model...'
+                self.saver.save(sess, self.MODEL_SAVE_DIRECTORY + 'checkpoint-' + str(iteration))
+                self.saver.export_meta_graph(self.MODEL_SAVE_DIRECTORY + 'checkpoint-' + str(iteration) + '.meta')
+
+    def autoencode_dataset(self, sess, adversarial_x):
+        i = 0
+        batch_size = adversarial_x.shape[0]
+        proj_img, proj_z = [], []
+        while (i < batch_size):
+            ni = i + self.exGAN.PROJ_BATCH_SIZE
+            rx, rz = sess.run([self.rx, self.z], feed_dict={self.x_hat: adversarial_x[i:ni, :]})
+            rx, rz = self.exGAN.find_proj(sess, adversarial_x[i:ni, :], rz)
+
+            i = ni
+            proj_img.append(rx)
+            proj_z.append(rz)
+
         return np.vstack(proj_img), np.vstack(proj_z)

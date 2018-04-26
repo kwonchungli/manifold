@@ -117,7 +117,9 @@ def cnn_model_fn(x, dropout_rate, reuse=False):
         dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
         dropout = tf.layers.dropout(inputs=dense, rate=dropout_rate)
 
-        return tf.layers.dense(inputs=dropout, units=10)
+        classifier_params = [var for var in tf.trainable_variables() if 'Classifier' in var.name]
+
+        return tf.layers.dense(inputs=dropout, units=10), classifier_params
 
 def save_model(sess, saver, checkpoint_dir):
     saver.save(sess, checkpoint_dir + 'trained_model')

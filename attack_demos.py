@@ -57,7 +57,7 @@ def main():
 
     x = tf.placeholder(tf.float32, shape=[None, x_size])
     y = tf.placeholder(tf.int32, shape=[None, y_size])
-    logits = classifier_model_fn(x)
+    logits,_ = classifier_model_fn(x)
     train_op = get_train_op(logits, y, learning_rate)
     accuracy_op = get_accuracy_op(logits, y)
 

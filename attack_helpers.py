@@ -32,7 +32,7 @@ def main():
         x = tf.placeholder(tf.float32, shape=[None, 784])
         y = tf.placeholder(tf.int32, shape=[None, 10])
         dropout_rate = tf.placeholder_with_default(0.4, shape=())
-        logits = cnn_model_fn(x, dropout_rate)
+        logits,_ = cnn_model_fn(x, dropout_rate)
         train_op = get_train_op(logits, y, learning_rate)
         accuracy_op = get_accuracy_op(logits, y)
         saver = tf.train.Saver()

@@ -25,8 +25,8 @@ if __name__ == '__main__':
     y = tf.placeholder(tf.int32, shape=[None, 10])
     
     dropout_rate = tf.placeholder_with_default(0.4, shape=())
-    logits = cnn_model_fn(x, dropout_rate)
-    adv_logits = cnn_model_fn(myVAE.rx, dropout_rate, True)
+    logits,_ = cnn_model_fn(x, dropout_rate)
+    adv_logits,_ = cnn_model_fn(myVAE.rx, dropout_rate, True)
     
     train_op = get_train_op(logits, y, learning_rate)
     accuracy_op = get_accuracy_op(logits, y)

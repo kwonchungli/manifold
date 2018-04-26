@@ -1,4 +1,5 @@
 import time
+import datetime
 
 import matplotlib
 matplotlib.use('Agg')
@@ -152,8 +153,7 @@ class GAN(object):
             sess.run(self.z_hat.assign(z0))
             #sess.run(self.z_hat.assign(np.random.normal(0, 1, size=(self.PROJ_BATCH_SIZE, self.get_latent_dim()))))
             sess.run(self.proj_step.assign(0))
-<<<<<<< HEAD
-            
+
             for i in range(self.PROJ_ITER):
                 _, cost = sess.run([self.proj_op, self.proj_loss], feed_dict={self.test_x: batch_x})
                 if( i % 50 == 0 ):
@@ -168,26 +168,9 @@ class GAN(object):
         
         return proj_img, proj_z
         
-        
-""" WGAN Implementation Start """        
-=======
-
-            for i in range(self.PROJ_ITER):
-                _, cost = sess.run([self.proj_op, self.proj_loss], feed_dict={self.test_x: batch_x})
-                if( i % 50 == 0 ):
-                    print ('Projection Cost is : ', cost)
-
-            if( cost < min_cost ):
-                min_cost = cost
-                proj_img = sess.run(self.out)
-
-            iterat = iterat + 1
-
-        return proj_img
-
 
 """ WGAN Implementation Start """
->>>>>>> c70b2663766203b8c41616b803656b2cfc96cad9
+
 class WGAN(GAN):
     def __init__(self):
         self.LAMBDA = .1 # Gradient penalty lambda hyperparameter
@@ -246,7 +229,7 @@ class WGAN(GAN):
 
         self.gen_cost, self.disc_cost = gen_cost, disc_cost
         return disc_cost, gen_train_op, disc_train_op
-<<<<<<< HEAD
+
     
     def get_train_gen(self, sess):
         train_gen = utils.load_dataset(self.BATCH_SIZE, self.data_func)
@@ -256,19 +239,18 @@ class WGAN(GAN):
         # Dataset iterator
         train_gen = self.get_train_gen(session)
         
-=======
 
     def train(self, session):
         # Dataset iterator
         train_gen, _, _ = utils.load_dataset(self.BATCH_SIZE, self.data_func)
         train_gen = utils.batch_gen(train_gen)
 
->>>>>>> c70b2663766203b8c41616b803656b2cfc96cad9
         # cache variables
         disc_cost, gen_train_op, disc_train_op = self.disc_cost, self.gen_train_op, self.disc_train_op
 
         # Train loop
         noise_size = (self.BATCH_SIZE, self.get_latent_dim())
+        start_time = time.time()
         for iteration in range(self.ITERS):
             if iteration > 0:
                 _ = session.run(gen_train_op,
@@ -289,6 +271,15 @@ class WGAN(GAN):
                     print 'disc_cost: ', -_disc_cost
 
             if( iteration % 100 == 10 ):
+                print '---------------'
+                elapsed_time = time.time() - start_time
+                avg_time = elapsed_time/iteration
+                iter_left =self.ITERS-iteration
+                time_left = int(avg_time * iter_left/60)
+                now = datetime.datetime.now()
+                print(now + datetime.timedelta(minutes=time_left))
+                print('time left (minutes):'+str(time_left))
+                print('ETA:'+str(now+datetime.timedelta(minutes=time_left)))
                 print '-------------------------------------'
 
             # Calculate dev loss and generate samples every 100 iters
