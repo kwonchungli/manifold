@@ -237,26 +237,9 @@ class FIT_AE_MINMAX(FIT_AE):
 
     def define_loss(self):
 
-        # reconstruction loss in X-space (noisy)
-        # resconstruct_loss = tf.reduce_mean(tf.norm(self.rx - self.x, ord=2, axis=1))
-        # self.res_loss = resconstruct_loss
 
-        # reconstruction loss in Z-space (noisy)
+        # reconstruction loss in Z-space (z_projection(X) vs. E(X))
         self.res_loss_z = tf.reduce_mean(tf.norm(self.z_projection - self.z, ord=2, axis=1))
-
-        #----------------------------------------
-
-        # # reconstruction loss in X-space (MinMax)
-        # resconstruct_loss = tf.reduce_mean(tf.norm(self.rx - self.x, ord=2, axis=1))
-        # self.res_loss = resconstruct_loss
-        #
-        # # reconstruction loss in Z-space (MinMax)
-        # noisy_x = self.decoded
-        # noisy_x = noisy_x + tf.random_normal(tf.shape(noisy_x), self.epsilon / 2, self.epsilon, dtype=tf.float32)
-        # self.rz = self.gaussian_MLP_encoder(tf.clip_by_value(noisy_x, 0, 1), reuse=True)
-        # self.res_loss_z = tf.reduce_mean(tf.norm(self.z_projection - self.rz, ord=2, axis=1))
-
-        # ----------------------------------------
 
         # get trainable params
         self.encode_params = [var for var in tf.trainable_variables() if 'encoder' in var.name]
@@ -266,7 +249,6 @@ class FIT_AE_MINMAX(FIT_AE):
         self.global_step = tf.Variable(0)
 
         # For now, forget about reconstruction loss
-        # loss = resconstruct_loss + self.res_loss_z * 10
         loss = self.res_loss_z
 
         learning_rate = tf.train.exponential_decay(
@@ -296,24 +278,21 @@ class FIT_AE_MINMAX(FIT_AE):
         # Train loop
         for iteration in range(self.ITERS):
             batch_xs, _ = next(train_gen)
-            batch_noise = self.add_noise(batch_xs)
+            adver_xs = self.add_noise(batch_xs)     # adversarial examples
 
-            # z0 = self.exGAN.noise_gen([self.exGAN.PROJ_BATCH_SIZE,self.exGAN.get_latent_dim()])
-            # _,zstar = self.exGAN.find_proj(sess, batch_noise, z0=z0)
-            _,zstar = self.autoencode_dataset(sess,batch_noise)
+            _,zstar = self.autoencode_dataset(sess,adver_xs)    # projection of adversarial examples onto range of GAN
 
             _, rz_loss = sess.run(
                 (self.en_train_op, self.res_loss_z),
                 feed_dict={self.z_in: self.noise_gen(noise_size),
-                           self.x_hat: batch_noise,
+                           self.x_hat: adver_xs,
                            self.x: batch_xs,
                            self.z_projection: zstar})
 
-            # Calculate dev loss and generate samples every 1000 iters
-            if iteration % 1000 == 10:
-                # print ('at iteration : ', iteration, ' loss : ', rs_loss, ', z_loss : ', rz_loss)
-                print ('at iteration : ', iteration, ', z_loss : ', rz_loss)
+            # Calculate dev loss and generate samples every 10 iters
+            if iteration % 10 == 0:
                 self.test_generate(sess, train_gen, filename='images/train_samples.png')
+            print ('at iteration : ', iteration, ', z_loss : ', rz_loss)
 
             if (iteration % 10000 == 9999):
                 print 'Saving model...'
