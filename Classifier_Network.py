@@ -17,35 +17,35 @@ class Classifier(object):
         return 0
     def get_class_num(self):
         return 0
-    
+
     def set_model_dir(self):
         self.filepath = './model_Classifier/HAHAHAH/'
-        
+
     def __init__(self, inf_norm = 0.2, myVAE = None, batch_size = 100):
         self.x = tf.placeholder(tf.float32, shape=[None, self.get_image_dim()])
-        self.y = tf.placeholder(tf.int32, shape=[None, 10])
+        self.y = tf.placeholder(tf.int32, shape=[None, self.get_class_num()])
         self.inf_norm = tf.placeholder_with_default(0.0, shape=())
-        
+
         self.BATCH_SIZE = batch_size
         self.VAE = myVAE
-        
+
         self.dropout_rate = tf.placeholder_with_default(0.4, shape=())
         self.logits, self.class_vars = self.build_classifier(self.x, self.inf_norm)
-        
+
         self.loss_op, self.train_op, self.pred_op = self.define_loss(self.logits, self.y)
         self.saver = tf.train.Saver(var_list=self.class_vars, max_to_keep=1)
-        
+
         self.set_model_dir()
-    
+
     def eval_model(self, sess):
         test_gen = self.get_test_gen(sess)
         it = 0
-        
+
         dropout_rate = self.dropout_rate
         x, y = self.x, self.y
         logits = self.logits
         accuracy_op = self.pred_op
-        
+
         loss_1 = tf.losses.softmax_cross_entropy(y, logits=logits)
         #loss_adv = tf.losses.softmax_cross_entropy(y, logits=adv_logits)
         #loss_z_l2 = tf.reduce_mean(tf.nn.l2_loss(myVAE.z - myVAE.z_in))
@@ -90,7 +90,7 @@ class Classifier(object):
                 utils.save_images(wrong_x.reshape(p_size, 3, 32, 32), 'images/cl_original.png')
                 utils.save_images(wrong_adv.reshape(p_size, 3, 32, 32), 'images/cl_adversarial.png')
                 #utils.save_images(wrong_res.reshape(p_size, 32, 32), 'images/cl_reconstr.png')
-                
+
         print ("------------ Test ----------------")
         print("Normal Accuracy:", normal_avr / it)
         print("Normal Adversarial Accuracy:", adv_avr_ref / it)
@@ -99,7 +99,7 @@ class Classifier(object):
 
     def build_classifier(self, im, inf_norm):
         pass
-    
+
     def define_learning_rate(self):
         self.train_step = tf.Variable(0)
         learning_rate = tf.train.exponential_decay(
@@ -109,34 +109,34 @@ class Classifier(object):
                 0.95,  # Decay rate.
                 staircase=True)
         return learning_rate
-    
+
     def define_loss(self, logits, y):
         correct_pred = tf.equal(tf.argmax(logits, 1), tf.argmax(y, 1))
         learning_rate = self.define_learning_rate()
-        
+
         optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
         loss_op = tf.losses.softmax_cross_entropy(y, logits=logits)
         train_op = optimizer.minimize(loss_op, global_step=self.train_step)
         batch_pred = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
-        
+
         return loss_op, train_op, batch_pred
 
     def get_train_gen(self, sess, num_epochs = 10):
         train_gen, _, _ = utils.load_dataset(self.BATCH_SIZE, self.data_func)
         return utils.batch_gen(train_gen, True, self.y.shape[1], num_epochs)
-    
+
     def get_test_gen(self, sess):
         _, _, test_gen = utils.load_dataset(self.BATCH_SIZE, self.data_func)
         return utils.batch_gen(test_gen, True, self.y.shape[1], 1)
-    
+
     def train(self, sess):
         # Dataset iterator
         train_gen = self.get_train_gen(sess, 50)
-        
+
         it = 0
         for x_train, y_train in train_gen:
             sess.run(self.train_op, feed_dict={self.x: x_train, self.y: y_train, self.inf_norm: 0.08})
-            
+
             it = it + 1
             if ( it % 100 == 0 ):
                 ls = sess.run(self.loss_op, feed_dict={self.x: x_train, self.y: y_train})
@@ -151,37 +151,88 @@ class Classifier(object):
         ckpt = tf.train.get_checkpoint_state(self.filepath)
         self.saver.restore(sess, ckpt.model_checkpoint_path)
 
+class Classifier_celeba(Classifier):
+    def get_image_dim(self):
+        return 64 * 64 * 3
+
+    def get_class_num(self):
+        return 2
+
+    def restore_session(self, sess):
+        self.saver.restore(sess, './pretrained_models/Celeb_A/data/CelebA_classifier/model-999')
+
+    def set_model_dir(self):
+        self.filepath = './model_Classifier/CelebA/'
+
+    def __init__(self, inf_norm = 0.2, myVAE = None, batch_size = 100):
+        self.data_func = utils.celeba_load
+
+        super(Classifier_celeba, self).__init__(inf_norm, myVAE, batch_size)
+
+    def build_classifier(self, im, inf_norm, reuse=False):
+        with tf.variable_scope("C", reuse=reuse) as vs:
+            net = InputLayer(tf.reshape(im, [-1, 64, 64, 3]))
+            n_filters = 3
+            for i in range(2):
+                net = Conv2dLayer(net, \
+                        act=tf.nn.relu, \
+                        shape=[5,5,n_filters,64], \
+                        name="conv_" + str(i))
+                net = MaxPool2d(net, \
+                        filter_size=(3,3), \
+                        strides=(2,2), \
+                        name="mpool_" + str(i))
+                net = LocalResponseNormLayer(net, \
+                        depth_radius=4, \
+                        bias=1.0, \
+                        alpha=0.001 / 9.0, \
+                        beta=0.75, \
+                        name="lrn_" + str(i))
+                n_filters = 64
+            net = FlattenLayer(net)
+            net = DenseLayer(net, n_units=384, act=tf.nn.relu, name="d1")
+            net = DenseLayer(net, n_units=192, act=tf.nn.relu, name="d2")
+            net = DenseLayer(net, n_units=2, act=tf.identity, name="final")
+            cla_vars = tf.contrib.framework.get_variables(vs)
+        return net.outputs, cla_vars
+
+class Classifier_celeba_Robust(Classifier_celeba):
+    def restore_session(self, sess):
+        ckpt = tf.train.get_checkpoint_state(self.filepath)
+        self.saver.restore(sess, ckpt.model_checkpoint_path)
+
+
 class Classifier_CIFAR10(Classifier):
     def get_image_dim(self):
         return 3072
-    
+
     def get_class_num(self):
         return 10
-    
+
     def restore_session(self, sess):
         self.saver.restore(sess, './pretrained_models/cifar10/data/cifar10_classifier/model.ckpt-1000000')
-    
+
     def set_model_dir(self):
         self.filepath = './model_Classifier/CIFAR10/'
-    
+
     def __init__(self, inf_norm = 0.2, myVAE = None, batch_size = 100):
         self.data_func = utils.cifar10_load
 
         super(Classifier_CIFAR10, self).__init__(inf_norm, myVAE, batch_size)
-     
+
     def build_classifier(self, im, inf_norm, reuse=False):
         with tf.variable_scope('C', reuse=reuse) as vs:
             x = tf.reshape(im, [-1, 3, 32, 32])
             x = tf.transpose(x, [0, 2, 3, 1])
-            
+
             xmin = tf.clip_by_value(x - inf_norm, 0., 1.)
             xmax = tf.clip_by_value(x + inf_norm, 0., 1.)
             x = tf.random_uniform(tf.shape(x), xmin, xmax, dtype=tf.float32)
-            
+
             # Crop the central [height, width] of the image.
             # x = tf.image.resize_image_with_crop_or_pad(x, 24, 24)
             x = tf.map_fn(lambda frame: tf.image.per_image_standardization(frame), x)
-            
+
             net = InputLayer(x)
             net = Conv2dLayer(net, \
                     act=tf.nn.relu, \
@@ -229,4 +280,3 @@ class Classifier_CIFAR10_Robust(Classifier_CIFAR10):
     def restore_session(self, sess):
         ckpt = tf.train.get_checkpoint_state(self.filepath)
         self.saver.restore(sess, ckpt.model_checkpoint_path)
-       

@@ -8,15 +8,25 @@ import urllib
 import gzip
 import cPickle as pickle
 import PIL.Image
+import pandas as pd
 
 from scipy.misc import imsave
 from download import *
+import image_load_helpers
 
 def CelebA_load():
     base_path = './data'
     prepare_data_dir()
     download_celeb_a(base_path)
     add_splits(base_path)
+
+def celeba_load(path='./data/celeba/'):
+    assert os.path.exists(path + 'is_male.csv')
+    assert os.path.isdir(path + 'img_align_celeba/')
+    images = image_load_helpers.get_full_input(path + 'img_align_celeba/')
+    labels = (pd.read_csv('./data/celeba/is_male.csv') + 1).astype(np.bool)
+    cutoff_index = 15000
+    return images[:cutoff_index], labels[:cutoff_index], images[cutoff_index:], labels[cutoff_index:]
 
 def shuffle(images, targets):
     rng_state = np.random.get_state()
