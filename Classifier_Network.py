@@ -10,9 +10,12 @@ import PIL.Image
 from attacks import get_adv_dataset
 import utils
 import attacks
+import image_load_helpers
 
 
 class Classifier(object):
+    def get_image_shape(self):
+        return (1, 0, 0)
     def get_image_dim(self):
         return 0
     def get_class_num(self):
@@ -39,6 +42,7 @@ class Classifier(object):
 
     def eval_model(self, sess):
         test_gen = self.get_test_gen(sess)
+        print('evaling')
         it = 0
 
         dropout_rate = self.dropout_rate
@@ -51,7 +55,7 @@ class Classifier(object):
         #loss_z_l2 = tf.reduce_mean(tf.nn.l2_loss(myVAE.z - myVAE.z_in))
 
         #attack = attacks.LinfPGDAttack(loss_z_l2, myVAE.x_hat, 0.3, 30, 0.01, True)
-        attack = attacks.LinfPGDAttack(loss_1, x, 0.05, 30, 0.01, True)
+        attack = attacks.LinfPGDAttack(loss_1, x, 0.005, 30, 0.01, True)
         #attack = attacks.LinfPGDAttack(loss_adv, myVAE.x_hat, 0.3, 30, 0.01, True)
 
         normal_avr, adv_avr_ref, adv_avr, reconstr_avr = 0, 0, 0, 0
@@ -87,8 +91,28 @@ class Classifier(object):
                 wrong_adv = adversarial_x[:, :]
                 #wrong_res = cleaned_x[:, :]
 
-                utils.save_images(wrong_x.reshape(p_size, 3, 32, 32), 'images/cl_original.png')
-                utils.save_images(wrong_adv.reshape(p_size, 3, 32, 32), 'images/cl_adversarial.png')
+                # utils.save_images(wrong_x.reshape(p_size,
+                #                                   self.get_image_shape()[0],
+                #                                   self.get_image_shape()[1],
+                #                                   self.get_image_shape()[2]) ,
+                #                   'images/cl_original.png')
+                image_load_helpers.save_images(wrong_x.reshape(p_size,
+                                                               self.get_image_shape()[0],
+                                                               self.get_image_shape()[1],
+                                                               self.get_image_shape()[2]) * 255,
+                                               (10, 11),
+                                               'images/cl_original.png')
+                image_load_helpers.save_images(wrong_adv.reshape(p_size,
+                                                                 self.get_image_shape()[0],
+                                                                 self.get_image_shape()[1],
+                                                                 self.get_image_shape()[2]) * 255,
+                                               (10, 11),
+                                               'images/cl_adversarial.png')
+                # utils.save_images(wrong_adv.reshape(p_size,
+                #                                     self.get_image_shape()[0],
+                #                                     self.get_image_shape()[1],
+                #                                     self.get_image_shape()[2]),
+                #                   'images/cl_adversarial.png')
                 #utils.save_images(wrong_res.reshape(p_size, 32, 32), 'images/cl_reconstr.png')
 
         print ("------------ Test ----------------")
@@ -126,7 +150,8 @@ class Classifier(object):
         return utils.batch_gen(train_gen, True, self.y.shape[1], num_epochs)
 
     def get_test_gen(self, sess):
-        _, _, test_gen = utils.load_dataset(self.BATCH_SIZE, self.data_func)
+        _, _, test_gen = utils.load_dataset(self.BATCH_SIZE, utils.load_celeba_test)
+        print('batching')
         return utils.batch_gen(test_gen, True, self.y.shape[1], 1)
 
     def train(self, sess):
@@ -152,6 +177,9 @@ class Classifier(object):
         self.saver.restore(sess, ckpt.model_checkpoint_path)
 
 class Classifier_celeba(Classifier):
+    def get_image_shape(self):
+        return (64, 64, 3)
+
     def get_image_dim(self):
         return 64 * 64 * 3
 
@@ -203,6 +231,9 @@ class Classifier_celeba_Robust(Classifier_celeba):
 
 
 class Classifier_CIFAR10(Classifier):
+    def get_image_shape(self):
+        return (32, 32, 3)
+
     def get_image_dim(self):
         return 3072
 

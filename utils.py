@@ -13,6 +13,7 @@ import pandas as pd
 from scipy.misc import imsave
 from download import *
 import image_load_helpers
+from celebA_input import inputs
 
 def CelebA_load():
     base_path = './data'
@@ -20,13 +21,25 @@ def CelebA_load():
     download_celeb_a(base_path)
     add_splits(base_path)
 
+# def celeba_load(path='./CelebA/'):
 def celeba_load(path='./data/celeba/'):
     assert os.path.exists(path + 'is_male.csv')
-    assert os.path.isdir(path + 'img_align_celeba/')
-    images = image_load_helpers.get_full_input(path + 'img_align_celeba/')
-    labels = (pd.read_csv('./data/celeba/is_male.csv') + 1).astype(np.bool)
-    cutoff_index = 15000
+    assert os.path.isdir(path + 'images/')
+    images = image_load_helpers.get_full_input(path + 'images/') / 255.0
+    labels = np.squeeze((pd.read_csv(path + 'is_male.csv') + 1).astype(np.bool).astype(np.int32).values)
+    cutoff_index = 150000
     return images[:cutoff_index], labels[:cutoff_index], images[cutoff_index:], labels[cutoff_index:]
+
+# def load_celeba_test(path='./CelebA/'):
+def load_celeba_test(path='./data/celeba/'):
+    # res = inputs(True, './pretrained_models/Celeb_A/data/CelebA_train/', 10000)
+    # return [], [], res[0], res[1]
+    assert os.path.exists(path + 'is_male.csv')
+    assert os.path.isdir(path + 'img_align_celeba/')
+    max_index = 10000
+    labels = np.squeeze((pd.read_csv(path + 'is_male.csv') + 1).astype(np.bool).astype(np.int32).values)
+    images = image_load_helpers.get_full_input(path + 'img_align_celeba/', max_index=max_index) / 255.0
+    return [], [], images, labels[:max_index]
 
 def shuffle(images, targets):
     rng_state = np.random.get_state()

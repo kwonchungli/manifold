@@ -20,6 +20,9 @@ def transform(image, npx=64, is_crop=True, resize_w=64):
     else:
         cropped_image = image
     return np.array(cropped_image)/127.5 - 1.
+    # im = np.array(cropped_image)
+    # return (im - np.mean(im))/np.std(im)
+    # return cropped_image
 
 def merge(images, size):
     h, w = images.shape[1], images.shape[2]
@@ -48,12 +51,11 @@ def imread(path, is_grayscale=False):
 def get_image(image_path, image_size, is_crop=True, resize_w=64, is_grayscale=False):
     return transform(imread(image_path, is_grayscale), image_size, is_crop, resize_w)
 
-def get_full_input(path='data/celeba/img_align_celeba/'):
+def get_full_input(path='data/celeba/img_align_celeba/', max_index=None):
     """Create input tensors"""
     image_paths = glob.glob(path + '*')
     image_paths.sort()
     image_paths = image_paths
     image_size = 108
-    images = [get_image(image_path, image_size) for image_path in image_paths]
-    images = {i: image.reshape([64*64*3]) for (i, image) in enumerate(images)}
-    return images
+    if max_index: image_paths = image_paths[:max_index]
+    return np.array([get_image(image_path, image_size).reshape([64*64*3]) for image_path in image_paths])

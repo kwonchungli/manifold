@@ -230,10 +230,12 @@ class WGAN_CelebA(WGAN):
         self.PROJ_BATCH_SIZE = 25
         
     def define_data_dir(self):
+        # self.MODEL_DIRECTORY = "./model_WGAN/CelebA/"
         self.MODEL_DIRECTORY = "./model_WGAN/CelebA/"
         
     def restore_session(self, sess):
-        self.saver.restore(sess, './PreModel/Dimakis_Models/Celeb_A/data/CelebA_gen/model.ckpt-102951')
+        # self.saver.restore(sess, './PreModel/Dimakis_Models/Celeb_A/data/CelebA_gen/model.ckpt-102951')
+        self.saver.restore(sess, './pretrained_models/Celeb_A/data/CelebA_gen/model.ckpt-102951')
 
     def __init__(self):
         self.data_func = utils.CelebA_load
