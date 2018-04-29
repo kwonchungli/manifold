@@ -36,7 +36,7 @@ def CelebA_load(label_data = None, image_paths = None, batch_size = 64, isTrain=
     else:
         index = 1 + tot_len - test_num + np.random.choice(test_num, batch_size, False)
     
-    images = np.array([image_load_helpers.get_image(image_paths[i], 108).reshape([64*64*3]) for i in index])
+    images = np.array([image_load_helpers.get_image(image_paths[i], 108).reshape([64*64*3]) for i in index])/255.
     labels = label_data[index-1]
     
     return images, labels
