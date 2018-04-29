@@ -20,17 +20,13 @@ if __name__ == '__main__':
     
     #myGAN = WGAN_Swiss()
     #myVAE = FIT_AE_Swiss(myGAN)
-
-    learning_rate = 0.0001
-    x = tf.placeholder(tf.float32, shape=[None, 3*32*32])
-    y = tf.placeholder(tf.int32, shape=[None, 10])
     
-    dropout_rate = tf.placeholder_with_default(0.4, shape=())
+    # myClass = Classifier_MNIST(0.0, myVAE)
+    # myClass = Classifier_MNIST_Robust(0.3, myVAE)
     
-    num_epochs = 100
-    batch_size = 100
-    
-    myClass = Classifier_CIFAR10(dropout_rate, myVAE)
+    # myClass = Classifier_CIFAR10(0.0, myVAE)
+    # myClass = Classifier_CIFAR10_Robust(0.08, myVAE)
+    myClass=  Classifier_CIFAR10_MINMAX(0.03, myVAE)
     
     init = tf.global_variables_initializer()
     config = tf.ConfigProto()
@@ -48,4 +44,5 @@ if __name__ == '__main__':
         myClass.train(sess)
         
         print('testing model')
-        myClass.eval_model(sess)
+        myClass.eval_model(sess, 0.05)
+        
