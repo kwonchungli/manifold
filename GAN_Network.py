@@ -343,3 +343,7 @@ class WGAN_MNIST_MINMAX(WGAN_MNIST):
         self.CRITIC_ITERS = 5
         self.PROJ_ITER = 150
         self.PROJ_BATCH_SIZE = 128
+
+        
+        
+        

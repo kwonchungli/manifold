@@ -10,7 +10,7 @@ def center_crop(x, crop_h, crop_w=None, resize_w=64):
     h, w = x.shape[:2]
     j = int(round((h - crop_h)/2.))
     i = int(round((w - crop_w)/2.))
-    return scipy.misc.imresize(x[j:j+crop_h, i:i+crop_w],
+    return scipy.misc.imresize(x[j:j+crop_h, i:i+crop_w, :],
                                [resize_w, resize_w])
 
 def transform(image, npx=64, is_crop=True, resize_w=64):
@@ -19,10 +19,8 @@ def transform(image, npx=64, is_crop=True, resize_w=64):
         cropped_image = center_crop(image, npx, resize_w=resize_w)
     else:
         cropped_image = image
-    return np.array(cropped_image)/127.5 - 1.
-    # im = np.array(cropped_image)
-    # return (im - np.mean(im))/np.std(im)
-    # return cropped_image
+    
+    return np.array(cropped_image)
 
 def merge(images, size):
     h, w = images.shape[1], images.shape[2]
@@ -50,12 +48,3 @@ def imread(path, is_grayscale=False):
 
 def get_image(image_path, image_size, is_crop=True, resize_w=64, is_grayscale=False):
     return transform(imread(image_path, is_grayscale), image_size, is_crop, resize_w)
-
-def get_full_input(path='data/celeba/img_align_celeba/', max_index=None):
-    """Create input tensors"""
-    image_paths = glob.glob(path + '*')
-    image_paths.sort()
-    image_paths = image_paths
-    image_size = 108
-    if max_index: image_paths = image_paths[:max_index]
-    return np.array([get_image(image_path, image_size).reshape([64*64*3]) for image_path in image_paths])

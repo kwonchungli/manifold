@@ -14,32 +14,32 @@ from scipy.misc import imsave
 from download import *
 import image_load_helpers
 from celebA_input import inputs
-
-def CelebA_load():
-    base_path = './data'
-    prepare_data_dir()
-    download_celeb_a(base_path)
-    add_splits(base_path)
-
-# def celeba_load(path='./CelebA/'):
-def celeba_load(path='./data/celeba/'):
-    assert os.path.exists(path + 'is_male.csv')
-    assert os.path.isdir(path + 'images/')
-    images = image_load_helpers.get_full_input(path + 'images/') / 255.0
-    labels = np.squeeze((pd.read_csv(path + 'is_male.csv') + 1).astype(np.bool).astype(np.int32).values)
-    cutoff_index = 150000
-    return images[:cutoff_index], labels[:cutoff_index], images[cutoff_index:], labels[cutoff_index:]
+import glob
 
 # def load_celeba_test(path='./CelebA/'):
-def load_celeba_test(path='./data/celeba/'):
-    # res = inputs(True, './pretrained_models/Celeb_A/data/CelebA_train/', 10000)
-    # return [], [], res[0], res[1]
+def CelebA_load(label_data = None, image_paths = None, batch_size = 64, isTrain=True):
+    path='./data/CelebA/'
+
     assert os.path.exists(path + 'is_male.csv')
-    assert os.path.isdir(path + 'img_align_celeba/')
-    max_index = 10000
-    labels = np.squeeze((pd.read_csv(path + 'is_male.csv') + 1).astype(np.bool).astype(np.int32).values)
-    images = image_load_helpers.get_full_input(path + 'img_align_celeba/', max_index=max_index) / 255.0
-    return [], [], images, labels[:max_index]
+    assert os.path.isdir(path + 'images/')
+    
+    if( label_data is None ):
+        label_data = np.squeeze((pd.read_csv(path + 'is_male.csv') + 1).astype(np.bool).astype(np.int32).values)
+        image_paths = glob.glob(path + 'images/*')
+        image_paths.sort()
+        return 1 - label_data, image_paths
+    
+    tot_len = len(label_data)
+    test_num = int(tot_len * 0.1)
+    if( isTrain ): 
+        index = 1 + np.random.choice(tot_len - test_num, batch_size, False)
+    else:
+        index = 1 + tot_len - test_num + np.random.choice(test_num, batch_size, False)
+    
+    images = np.array([image_load_helpers.get_image(image_paths[i], 108).reshape([64*64*3]) for i in index])
+    labels = label_data[index-1]
+    
+    return images, labels
 
 def shuffle(images, targets):
     rng_state = np.random.get_state()
@@ -175,21 +175,48 @@ def swiss_load():
 
     return train_data, train_target, test_data, test_target
 
-def load_dataset(batch_size, load_func):
+def dynamic_load_dataset(batch_size, load_func):
+    label_data, image_paths = load_func()
+    tot_len = len(label_data)
+    
+    test_len = int(tot_len*0.1)
+    train_len = tot_len - test_len
+    
+    def train_epoch():
+        i = 0
+        while(i + batch_size < train_len):
+            data, label = load_func(label_data, image_paths, batch_size, isTrain=True)
+            yield data, label
+            i = i + batch_size
+            
+    def test_epoch():
+        i = 0
+        while(i + batch_size < test_len):
+            data, label = load_func(label_data, image_paths, batch_size, isTrain=False)
+            yield data, label
+            i = i + batch_size
+            
+    return train_epoch, None, test_epoch
+    
+def load_dataset(batch_size, load_func, dynamic_load = False):
+    if( dynamic_load ):
+        return dynamic_load_dataset(batch_size, load_func)
+        
     train_data, train_target, test_data, test_target = load_func()
     test_size = batch_size
 
     def train_epoch():
         tot_len = train_data.shape[0]
-        i = np.random.randint(0, batch_size)
+        i = 0
+        #i = np.random.randint(0, batch_size)
         while(i + batch_size < tot_len):
             yield (np.copy(train_data[i:i+batch_size, :]), np.copy(train_target[i:i+batch_size]))
             i = i + batch_size
 
     def test_epoch():
         tot_len = test_data.shape[0]
-        #i = 0
-        i = np.random.randint(0, test_size)
+        i = 0
+        #i = np.random.randint(0, test_size)
         while(i + test_size < tot_len):
             yield (np.copy(test_data[i:i+test_size, :]), np.copy(test_target[i:i+test_size]))
             i = i + batch_size
