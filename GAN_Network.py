@@ -223,7 +223,8 @@ class WGAN_MNIST_V2(WGAN_MNIST):
 ########################################################################3
 class WGAN_CelebA(WGAN):
     def define_default_param(self):
-        self.BATCH_SIZE = 128
+        # self.BATCH_SIZE = 128
+        self.BATCH_SIZE = 25
         self.ITERS = 50001
         self.CRITIC_ITERS = 5
         self.PROJ_ITER = 150
@@ -247,30 +248,38 @@ class WGAN_CelebA(WGAN):
         return np.random.normal(size=noise_size).astype('float32')
         #return np.random.uniform(0, 10, size=noise_size).astype('float32')
     
-    def get_train_gen(self, sess):
-        import data_loader as dl
-        import PIL
-        paths = dl.get_loader('./data/CelebA', self.BATCH_SIZE, 64, 'NHWC', 'train')
-        
-        def batch_gen(use_one_hot_encoding=False, out_dim=-1, num_iter=-1):
-            st, it = 0, 0
-            batch_x = np.zeros((self.BATCH_SIZE, self.get_image_dim()))
-            crop = (50, 25, 128, 160)
-            while (it < num_iter) or (num_iter < 0):
-                it = it + 1
-                
-                for i in range(0, self.BATCH_SIZE):
-                    img = PIL.Image.open(paths[st + i])
-                    img = img.crop(crop)
-                    img = img.resize((64, 64))
-                    img = np.asarray(img, dtype=np.float32) / 255.
-                    
-                    batch_x[i] = img.reshape(-1, self.get_image_dim())
-                
-                st = (st + self.BATCH_SIZE) % (len(paths) - self.BATCH_SIZE)
-                yield batch_x, None
+    def get_train_gen(self, sess, num_epochs = 10):
+        train_gen, _, _ = utils.load_dataset(self.BATCH_SIZE, self.data_func, True)
+        return utils.batch_gen(train_gen, True, 2, num_epochs)
 
-        return batch_gen()
+    def get_test_gen(self, sess):
+        _, _, test_gen = utils.load_dataset(self.BATCH_SIZE, self.data_func, True)
+        return utils.batch_gen(test_gen, True, 2, 1)
+
+    # def get_train_gen(self, sess):
+    #     import data_loader as dl
+    #     import PIL
+    #     paths = dl.get_loader('./data/CelebA', self.BATCH_SIZE, 64, 'NHWC', 'train')
+        
+    #     def batch_gen(use_one_hot_encoding=False, out_dim=-1, num_iter=-1):
+    #         st, it = 0, 0
+    #         batch_x = np.zeros((self.BATCH_SIZE, self.get_image_dim()))
+    #         crop = (50, 25, 128, 160)
+    #         while (it < num_iter) or (num_iter < 0):
+    #             it = it + 1
+                
+    #             for i in range(0, self.BATCH_SIZE):
+    #                 img = PIL.Image.open(paths[st + i])
+    #                 img = img.crop(crop)
+    #                 img = img.resize((64, 64))
+    #                 img = np.asarray(img, dtype=np.float32) / 255.
+                    
+    #                 batch_x[i] = img.reshape(-1, self.get_image_dim())
+                
+    #             st = (st + self.BATCH_SIZE) % (len(paths) - self.BATCH_SIZE)
+    #             yield batch_x, None
+
+    #     return batch_gen()
     
     def train(self, session):
         print 'Bad Thing Happens!!!'

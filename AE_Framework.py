@@ -183,12 +183,15 @@ class FIT_AE(AE):
     def add_noise(self, batch_xs):
          return batch_xs + np.random.normal(0, self.epsilon, size=batch_xs.shape)
 
+    def get_train_gen(self, sess, num_epochs = 10):
+        train_gen, _, _ = utils.load_dataset(self.BATCH_SIZE, self.data_func, True)
+        return utils.batch_gen(train_gen, True, 2, num_epochs)
+
     def train(self, sess):
         # Dataset iterator
-        train_gen, _, _ = utils.load_dataset(self.BATCH_SIZE, self.data_func)
 
         noise_size = (self.BATCH_SIZE, self.get_latent_dim())
-        train_gen = utils.batch_gen(train_gen)
+        train_gen = self.get_train_gen(sess)
 
         # Train loop
         for iteration in range(self.ITERS):

@@ -208,7 +208,7 @@ class FIT_AE_CelebA(FIT_AE):
         self.MODEL_DIRECTORY = "./model_AE/CelebA/"
 
     def __init__(self, exGAN):
-        self.data_func = utils.celeba_load
+        self.data_func = utils.CelebA_load
         self.epsilon = 0.05
 
         self.define_data_dir()
@@ -232,11 +232,11 @@ class FIT_AE_CelebA(FIT_AE):
             batch = batch[:p_size, :]
             rx, rz = sess.run([self.rx, self.z], feed_dict={self.x_hat: batch, self.x: batch})
 
-            # proj_img = self.exGAN.find_proj(sess, batch, rz)
+            proj_img = self.exGAN.find_proj(sess, batch, rz)
 
-            utils.save_images(rx.reshape(p_size, 28, 28), 'images/reconstr.png')
-            utils.save_images(batch.reshape(p_size, 28, 28), 'images/original.png')
-            # utils.save_images(proj_img.reshape(p_size, 28, 28), 'images/projection.png')
+            utils.save_images(rx.reshape(p_size, 64, 64, 3), 'images/reconstr.png')
+            utils.save_images(batch.reshape(p_size, 64, 64, 3), 'images/original.png')
+            utils.save_images(proj_img.reshape(p_size, 64, 64, 3), 'images/projection.png')
 
     def decoder(self, z, dim_img, n_hidden=256):
         y, _ = self.exGAN.build_generator(z, reuse=True)

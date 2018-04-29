@@ -16,7 +16,6 @@ import image_load_helpers
 from celebA_input import inputs
 import glob
 
-# def load_celeba_test(path='./CelebA/'):
 def CelebA_load(label_data = None, image_paths = None, batch_size = 64, isTrain=True):
     path='./data/CelebA/'
 
@@ -201,7 +200,6 @@ def dynamic_load_dataset(batch_size, load_func):
 def load_dataset(batch_size, load_func, dynamic_load = False):
     if( dynamic_load ):
         return dynamic_load_dataset(batch_size, load_func)
-        
     train_data, train_target, test_data, test_target = load_func()
     test_size = batch_size
 
