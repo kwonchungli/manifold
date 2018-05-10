@@ -3,18 +3,26 @@ import utils
 import matplotlib
 import matplotlib.pyplot as plt
 import tensorflow as tf
+import os.path
 
 class AE(object):
     def define_default_param(self):
         self.BATCH_SIZE = 128
-        self.ITERS = 100001
+        self.ITERS = 10001
+    
+    def define_data_dir(self):
+        pass
         
     def define_saver(self):
         self.saver = tf.train.Saver(var_list=self.enc_params + self.dec_params, max_to_keep=1)
         
     def __init__(self):
         self.define_default_param()
-
+        self.define_data_dir()
+        
+        if not os.path.exists(self.MODEL_DIRECTORY):
+            os.makedirs(self.MODEL_DIRECTORY)
+            
         # define inputs
         self.x_hat = tf.placeholder(tf.float32, shape=[None, self.get_image_dim()], name='copy_img')
         self.x = tf.placeholder(tf.float32, shape=[None, self.get_image_dim()], name='input_img')
@@ -147,16 +155,22 @@ class FIT_AE(AE):
 
         return z, y
 
+    def inject_noise(self, x):
+        xmin = tf.clip_by_value(x - self.epsilon, 0., 1.)
+        xmax = tf.clip_by_value(x + self.epsilon, 0., 1.)
+        x = tf.random_uniform(tf.shape(x), xmin, xmax, dtype=tf.float32)
+        return x
+        
     def define_loss(self):
         # reconstruction loss in X-space
-        resconstruct_loss = tf.reduce_mean(tf.norm(self.rx - self.x, ord=2, axis=1))
+        resconstruct_loss = tf.reduce_mean(tf.reduce_sum(tf.square(self.rx - self.x), axis=1))
         self.res_loss = resconstruct_loss
 
         # reconstruction loss in Z-space
         noisy_x = self.decoded
-        noisy_x = noisy_x + tf.random_normal(tf.shape(noisy_x), self.epsilon/2, self.epsilon, dtype=tf.float32)
-        self.rz = self.gaussian_MLP_encoder(tf.clip_by_value(noisy_x, 0, 1), reuse = True)
-        self.res_loss_z = tf.reduce_mean(tf.norm(self.z_in - self.rz, ord=2, axis=1))
+        noisy_x = self.inject_noise(noisy_x)
+        self.rz, _, _ = self.gaussian_MLP_encoder(noisy_x, reuse = True)
+        self.res_loss_z = tf.reduce_mean(tf.reduce_sum(tf.square(self.z_in - self.rz), axis=1))
 
         # get trainable params
         self.encode_params = [var for var in tf.trainable_variables() if 'encoder' in var.name]
@@ -164,10 +178,10 @@ class FIT_AE(AE):
 
         # define loss & training operation
         self.global_step = tf.Variable(0)
-        loss = resconstruct_loss + self.res_loss_z * 10
+        loss = resconstruct_loss * 0.1 + self.res_loss_z * 10
 
         learning_rate = tf.train.exponential_decay(
-                1e-4,  # Base learning rate.
+                1e-3,  # Base learning rate.
                 self.global_step,  # Current index into the dataset.
                 5000,  # Decay step.
                 0.96,  # Decay rate.
@@ -184,12 +198,11 @@ class FIT_AE(AE):
          return batch_xs + np.random.normal(0, self.epsilon, size=batch_xs.shape)
 
     def get_train_gen(self, sess, num_epochs = 10):
-        train_gen, _, _ = utils.load_dataset(self.BATCH_SIZE, self.data_func, True)
-        return utils.batch_gen(train_gen, True, 2, num_epochs)
+        train_gen, _, _ = utils.load_dataset(self.BATCH_SIZE, self.data_func)
+        return utils.batch_gen(train_gen)
 
     def train(self, sess):
         # Dataset iterator
-
         noise_size = (self.BATCH_SIZE, self.get_latent_dim())
         train_gen = self.get_train_gen(sess)
 
@@ -212,14 +225,14 @@ class FIT_AE(AE):
                 self.saver.save(sess, self.MODEL_DIRECTORY+'checkpoint-'+str(iteration))
                 self.saver.export_meta_graph(self.MODEL_DIRECTORY+'checkpoint-'+str(iteration)+'.meta')
 
-    def autoencode_dataset(self, sess, adversarial_x):
+    def autoencode_dataset(self, sess, adversarial_x, rd_init=False, rd_iter=1):
         i = 0
         batch_size = adversarial_x.shape[0]
         proj_img, proj_z = [], []
-        while( i < batch_size ):
+        while (i < batch_size):
             ni = i + self.exGAN.PROJ_BATCH_SIZE
             rx, rz = sess.run([self.rx, self.z], feed_dict={self.x_hat: adversarial_x[i:ni, :]})
-            rx, rz = self.exGAN.find_proj(sess, adversarial_x[i:ni, :], rz)
+            rx, rz = self.exGAN.find_proj(sess, adversarial_x[i:ni, :], rz, rd_init, rd_iter)
 
             i = ni
             proj_img.append(rx)
@@ -228,6 +241,7 @@ class FIT_AE(AE):
         return np.vstack(proj_img), np.vstack(proj_z)
 
 
+"""
 ##########################################################
 class FIT_AE_MINMAX(FIT_AE):
     def __init__(self, exGAN):
@@ -323,17 +337,4 @@ class FIT_AE_MINMAX(FIT_AE):
                 self.saver.save(sess, self.MODEL_SAVE_DIRECTORY + 'checkpoint-' + str(iteration))
                 self.saver.export_meta_graph(self.MODEL_SAVE_DIRECTORY + 'checkpoint-' + str(iteration) + '.meta')
 
-    def autoencode_dataset(self, sess, adversarial_x):
-        i = 0
-        batch_size = adversarial_x.shape[0]
-        proj_img, proj_z = [], []
-        while (i < batch_size):
-            ni = i + self.exGAN.PROJ_BATCH_SIZE
-            rx, rz = sess.run([self.rx, self.z], feed_dict={self.x_hat: adversarial_x[i:ni, :]})
-            rx, rz = self.exGAN.find_proj(sess, adversarial_x[i:ni, :], rz)
-
-            i = ni
-            proj_img.append(rx)
-            proj_z.append(rz)
-
-        return np.vstack(proj_img), np.vstack(proj_z)
+"""

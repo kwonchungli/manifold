@@ -11,7 +11,7 @@ import PIL.Image
 from attacks import get_adv_dataset
 import utils
 import attacks
-
+import os.path
 
 class Classifier(object):
     def get_image_dim(self):
@@ -23,6 +23,7 @@ class Classifier(object):
         pass
         
     def __init__(self, inf_norm = 0.0, myVAE = None, batch_size = 100):
+        self.MINMAX = False
         self.x = tf.placeholder(tf.float32, shape=[None, self.get_image_dim()])
         self.y = tf.placeholder(tf.int32, shape=[None, self.get_class_num()])
         self.inf_norm = tf.placeholder_with_default(0.0001, shape=())
@@ -38,8 +39,11 @@ class Classifier(object):
         self.saver = tf.train.Saver(var_list=self.class_vars, max_to_keep=1)
         
         self.set_model_dir()
+        
+        if not os.path.exists(self.filepath):
+            os.makedirs(self.filepath)
     
-    def eval_model(self, sess, adv_level=0.05):
+    def eval_model(self, sess, adv_level=0.05, rd_init=False, rd_iter=1):
         test_gen = self.get_test_gen(sess)
         it = 0
         
@@ -59,28 +63,29 @@ class Classifier(object):
         normal_avr, adv_avr_ref, adv_avr, reconstr_avr = 0, 0, 0, 0
         for x_test, y_test in test_gen:
             it = it + 1
-            
             # Check Transfer
-            #self.saver.restore(sess, './pretrained_models/cifar10/data/cifar10_classifier/model.ckpt-1000000')
+            self.saver.restore(sess, './model_Classifier/MNIST/trained_model')
             
-            #adversarial_x = get_adv_dataset(sess, logits, x, y, x_test, y_test, adv_level)
+            adversarial_x = get_adv_dataset(sess, logits, x, y, x_test, y_test, adv_level)
             #adversarial_x = get_adv_dataset(sess, adv_logits, myVAE.x_hat, y, x_test, y_test)
 
             #_, z_in = myVAE.autoencode_dataset(sess, x_test)
             #adversarial_x = attack.perturb(x_test, y_test, myVAE.x_hat, y, sess, myVAE.z_in, z_in)
             
-            adversarial_x = attack.perturb(x_test, y_test, x, y, sess)
+            #adversarial_x = attack.perturb(x_test, y_test, x, y, sess)
             #adversarial_x = attack.perturb(x_test, y_test, myVAE.x_hat, y, sess)
-            #cleaned_x, z_res = myVAE.autoencode_dataset(sess, adversarial_x)
-            #print ('compare z vs z : ', (z_in[0] - z_res[0]), np.linalg.norm(z_in[0] - z_res[0]))
+            
+            self.restore_session(sess)
+            if( self.VAE is not None ):
+                cleaned_x, z_res = self.VAE.autoencode_dataset(sess, adversarial_x, rd_init, rd_iter)
+                reconstr_avr += sess.run(accuracy_op, feed_dict={x: cleaned_x, y: y_test, dropout_rate: 0.0})
 
-            #self.restore_session(sess)
+                #print ('compare z vs z : ', (z_in[0] - z_res[0]), np.linalg.norm(z_in[0] - z_res[0]))
             
             normal_avr += sess.run(accuracy_op, feed_dict={x: x_test, y: y_test, dropout_rate: 0.0})
             adv_avr_ref += sess.run(accuracy_op, feed_dict={x: adversarial_x, y: y_test, dropout_rate: 0.0})
 
-            #adv_avr += sess.run(adv_acc_op, feed_dict={myVAE.x_hat: adversarial_x, y: y_test, dropout_rate: 0.0})
-            #reconstr_avr += sess.run(accuracy_op, feed_dict={x: cleaned_x, y: y_test, dropout_rate: 0.0})
+            # adv_avr += sess.run(adv_acc_op, feed_dict={myVAE.x_hat: adversarial_x, y: y_test, dropout_rate: 0.0})
 
             if( it % 10 == 1 ):
                 #test_pred = sess.run(logits, feed_dict={x: cleaned_x, y: y_test, dropout_rate: 0.0})
@@ -88,21 +93,26 @@ class Classifier(object):
                 #i1 = np.argmax(test_pred, 1)
                 #i2 = np.argmax(y_test, 1)
                 #index = np.where(np.not_equal(i1, i2))[0]
-
+                
                 #p_size = len(index)
+                print normal_avr / it, adv_avr_ref / it, reconstr_avr / it
+                
                 p_size = x_test.shape[0]
-                wrong_x = x_test[:, :]
-                wrong_adv = adversarial_x[:, :]
-                #wrong_res = cleaned_x[:, :]
+                index = np.array(range(p_size))
+                
+                wrong_x = x_test[index, :]
+                wrong_adv = adversarial_x[index, :]
+                wrong_res = cleaned_x[index, :]
                 
                 self.test_generate(wrong_x, p_size, 'images/cl_original.png')
                 self.test_generate(wrong_adv, p_size, 'images/cl_adversarial.png')
+                if( self.VAE is not None ):
+                    self.test_generate(wrong_res, p_size, 'images/cl_reconstr.png')
                 
         print ("------------ Test ----------------")
         print("Normal Accuracy:", normal_avr / it)
         print("Normal Adversarial Accuracy:", adv_avr_ref / it)
-        #print(name, "Adversarial Accuracy:", adv_avr / it)
-        #print(name, "Reconstructed Accuracy:", reconstr_avr / it)
+        print("Reconstructed Accuracy:", reconstr_avr / it)
 
     def test_generate(self, x, n_sample, filename='images/results.png'):
         pass
@@ -111,7 +121,6 @@ class Classifier(object):
         pass
     
     def define_learning_rate(self):
-        self.train_step = tf.Variable(0)
         learning_rate = tf.train.exponential_decay(
                 1e-3,  # Base learning rate.
                 self.train_step,  # Current index into the dataset.
@@ -122,6 +131,7 @@ class Classifier(object):
     
     def define_loss(self, logits, y):
         correct_pred = tf.equal(tf.argmax(logits, 1), tf.argmax(y, 1))
+        self.train_step = tf.Variable(0)
         learning_rate = self.define_learning_rate()
         
         optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
@@ -139,18 +149,39 @@ class Classifier(object):
         _, _, test_gen = utils.load_dataset(self.BATCH_SIZE, self.data_func)
         return utils.batch_gen(test_gen, True, self.y.shape[1], 1)
     
-    def train(self, sess):
+    def bad_example(self, sess, x_nat, y):
+        """Given a set of examples (x_nat, y), returns a set of adversarial
+           examples within epsilon of x_nat in l_infinity norm."""
+        x = x_nat + np.random.uniform(-self.noise_level, self.noise_level, x_nat.shape)
+        x = np.clip(x, 0., 1.)
+
+        for i in range(20):
+            grad = sess.run(self.grad, feed_dict={self.x: x, self.y: y})
+
+            x += (self.noise_level) / 5. * np.sign(grad)
+            x = np.clip(x, x_nat - self.noise_level, x_nat + self.noise_level)
+            x = np.clip(x, 0., 1.) # ensure valid pixel range
+
+        return x
+    
+    def train(self, sess, num_epoch=10):
         # Dataset iterator
-        train_gen = self.get_train_gen(sess, 10)
+        train_gen = self.get_train_gen(sess, num_epoch)
         
         it = 0
         for x_train, y_train in train_gen:
-            sess.run(self.train_op, feed_dict={self.x: x_train, self.y: y_train, self.inf_norm: self.noise_level})
+            x_adv = x_train
+            if( self.MINMAX is False ):
+                sess.run(self.train_op, feed_dict={self.x: x_train, self.y: y_train, self.inf_norm: self.noise_level})
+            else:
+                x_adv = self.bad_example(sess, x_train, y_train)
+                sess.run(self.train_op, feed_dict={self.x: x_adv, self.y: y_train})                
             
             it = it + 1
-            if ( it % 100 == 0 ):
+            if ( it % 5 == 0 ):
                 ls = sess.run(self.loss_op, feed_dict={self.x: x_train, self.y: y_train})
-                print 'loss :', ls
+                ls2 = sess.run(self.loss_op, feed_dict={self.x: x_adv, self.y: y_train})
+                print 'loss :', ls, 'no!!:', ls2
 
             if( it % 1000 == 0 ):
                 print 'Saving model...'
@@ -179,10 +210,10 @@ class Classifier_CelebA(Classifier):
     def get_class_num(self):
         return 2
 
-    def restore_session(self, sess):
-        self.saver.restore(sess, './pretrained_models/Celeb_A/data/CelebA_classifier/model-999')
+    #def restore_session(self, sess):
+    #    self.saver.restore(sess, './pretrained_models/Celeb_A/data/CelebA_classifier/model-999')
 
-    def get_train_gen(self, sess, num_epochs = 10):
+    def get_train_gen(self, sess, num_epochs = 30):
         train_gen, _, _ = utils.load_dataset(self.BATCH_SIZE, self.data_func, True)
         return utils.batch_gen(train_gen, True, self.y.shape[1], num_epochs)
 
@@ -193,13 +224,17 @@ class Classifier_CelebA(Classifier):
     def set_model_dir(self):
         self.filepath = './model_Classifier/CelebA/'
 
-    def __init__(self, inf_norm = 0.2, myVAE = None, batch_size = 100):
+    def __init__(self, inf_norm = 0.0, myVAE = None, batch_size = 100):
         self.data_func = utils.CelebA_load
         super(Classifier_CelebA, self).__init__(inf_norm, myVAE, batch_size)
 
     def build_classifier(self, im, inf_norm, reuse=False):
         with tf.variable_scope("C", reuse=reuse) as vs:
             x = tf.reshape(im, [-1, 64, 64, 3])
+            xmin = tf.clip_by_value(x - inf_norm, 0., 1.)
+            xmax = tf.clip_by_value(x + inf_norm, 0., 1.)
+            x = tf.random_uniform(tf.shape(x), xmin, xmax, dtype=tf.float32)
+            
             #x = tf.map_fn(lambda frame: tf.image.per_image_standardization(frame), x)
             
             net = InputLayer(x)
@@ -227,7 +262,11 @@ class Classifier_CelebA(Classifier):
             cla_vars = tf.contrib.framework.get_variables(vs)
         return net.outputs, cla_vars        
     
-    
+
+class Classifier_CelebA_Robust(Classifier_CelebA):
+    def set_model_dir(self):
+        self.filepath = './model_Classifier/CelebA_Robust/'    
+        
 ########################################################################################3
 ##########################            MNIST            #################################3
 ########################################################################################3
@@ -240,15 +279,12 @@ class Classifier_MNIST(Classifier):
         return 10
     
     def set_model_dir(self):
+        self.data_func = utils.MNIST_load
         self.filepath = './model_Classifier/MNIST/'
 
     def test_generate(self, x, n_sample, filename='images/results.png'):
         utils.save_images(x.reshape(n_sample, 28, 28), filename)
         
-    def __init__(self, inf_norm = 0.0, myVAE = None, batch_size = 100):
-        self.data_func = utils.MNIST_load
-        super(Classifier_MNIST, self).__init__(inf_norm, myVAE, batch_size)
-    
     def build_classifier(self, im, inf_norm, reuse=False):
         with tf.variable_scope("Classifier", reuse=reuse) as vs:
             xmin = tf.clip_by_value(im - inf_norm, 0., 1.)
@@ -280,8 +316,41 @@ class Classifier_MNIST(Classifier):
 
 class Classifier_MNIST_Robust(Classifier_MNIST):
     def set_model_dir(self):
+        self.data_func = utils.MNIST_load
         self.filepath = './model_Classifier/MNIST_Robust/'
+        
+        
+class Classifier_F_MNIST(Classifier_MNIST):
+    def set_model_dir(self):
+        self.data_func = utils.F_MNIST_load
+        self.filepath = './model_Classifier/F_MNIST/'
 
+        
+class Classifier_F_MNIST_Robust(Classifier_F_MNIST):
+    def set_model_dir(self):
+        self.data_func = utils.F_MNIST_load
+        self.filepath = './model_Classifier/F_MNIST_Robust/'
+
+        
+class Classifier_F_MNIST_MINMAX(Classifier_F_MNIST):
+    def set_model_dir(self):
+        self.data_func = utils.F_MNIST_load
+        self.filepath = './model_Classifier/F_MNIST_MINMAX/'
+    
+    def define_learning_rate(self):
+        learning_rate = tf.train.exponential_decay(
+                1e-4,  # Base learning rate.
+                self.train_step,  # Current index into the dataset.
+                10000,  # Decay step.
+                0.95,  # Decay rate.
+                staircase=True)
+        return learning_rate
+    
+    def __init__(self, inf_norm = 0.08, myVAE = None, batch_size = 100):
+        super(Classifier_F_MNIST_MINMAX, self).__init__(inf_norm, myVAE, batch_size)    
+        self.grad = tf.gradients(self.loss_op, self.x)[0]
+        self.MINMAX = True
+        
 ########################################################################################3
 ########################            CIFAR10            #################################3
 ########################################################################################3
@@ -374,7 +443,6 @@ class Classifier_CIFAR10_Robust(Classifier_CIFAR10):
         ckpt = tf.train.get_checkpoint_state(self.filepath)
         self.saver.restore(sess, ckpt.model_checkpoint_path)
         
-        
 class Classifier_CIFAR10_MINMAX(Classifier_CIFAR10):
     def set_model_dir(self):
         self.filepath = './model_Classifier/CIFAR10_MINMAX/'
@@ -382,40 +450,7 @@ class Classifier_CIFAR10_MINMAX(Classifier_CIFAR10):
     def __init__(self, inf_norm = 0.08, myVAE = None, batch_size = 100):
         super(Classifier_CIFAR10_MINMAX, self).__init__(inf_norm, myVAE, batch_size)    
         self.grad = tf.gradients(self.loss_op, self.x)[0]
-
-    def bad_example(self, sess, x_nat, y):
-        """Given a set of examples (x_nat, y), returns a set of adversarial
-           examples within epsilon of x_nat in l_infinity norm."""
-        x = x_nat + np.random.uniform(-self.noise_level, self.noise_level, x_nat.shape)
-        x = np.clip(x, 0., 1.)
-
-        for i in range(20):
-            grad = sess.run(self.grad, feed_dict={self.x: x, self.y: y})
-
-            x += (self.noise_level) / 5. * np.sign(grad)
-            x = np.clip(x, x_nat - self.noise_level, x_nat + self.noise_level)
-            x = np.clip(x, 0., 1.) # ensure valid pixel range
-
-        return x
-    
-    def train(self, sess):
-        # Dataset iterator
-        train_gen = self.get_train_gen(sess, 20)
-        
-        it = 0
-        for x_train, y_train in train_gen:
-            x_adv = self.bad_example(sess, x_train, y_train)
-            
-            sess.run(self.train_op, feed_dict={self.x: x_adv, self.y: y_train})
-            it = it + 1
-            if ( it % 100 == 0 ):
-                ls = sess.run(self.loss_op, feed_dict={self.x: x_train, self.y: y_train})
-                print 'loss :', ls
-
-            if( it % 1000 == 0 ):
-                print 'Saving model...'
-                self.saver.save(sess, self.filepath+'checkpoint-'+str(it))
-                self.saver.export_meta_graph(self.filepath+'checkpoint-'+str(it)+'.meta')
+        self.MINMAX = True
 
     def restore_session(self, sess):
         ckpt = tf.train.get_checkpoint_state(self.filepath)

@@ -15,22 +15,13 @@ from classifiers import *
 from ConvNet import ConvNet
 
 if __name__ == '__main__':
-    myGAN = WGAN_MNIST_V2()
-    myVAE = FIT_AE_MNIST_V2(myGAN)
+    myGAN = WGAN_CelebA()
+    myVAE = FIT_AE_CelebA(myGAN)
     
     #myGAN = WGAN_Swiss()
     #myVAE = FIT_AE_Swiss(myGAN)
 
-    learning_rate = 0.0001
-    x = tf.placeholder(tf.float32, shape=[None, 3*32*32])
-    y = tf.placeholder(tf.int32, shape=[None, 10])
-    
-    dropout_rate = tf.placeholder_with_default(0.4, shape=())
-    
-    num_epochs = 100
-    batch_size = 100
-    
-    myClass = Classifier_CIFAR10(dropout_rate, myVAE)
+    myClass = Classifier_CelebA(0.0, myVAE, batch_size = 100)
     
     init = tf.global_variables_initializer()
     config = tf.ConfigProto()
@@ -40,12 +31,21 @@ if __name__ == '__main__':
         sess.run(init)
         
         print ('Loading GAN + AE')
-        myGAN.restore_session(sess)
-        myVAE.restore_session(sess)
-       
+        #myGAN.restore_session(sess)
+        #myGAN.train(sess)
+        
+        #myVAE.restore_session(sess)
+        myVAE.train(sess)
         print ('Start Training Classifier')
-        myClass.restore_session(sess)
-        myClass.train(sess)
+        
+        #myClass.restore_session(sess)
+        myClass.train(sess, 30)
         
         print('testing model')
-        myClass.eval_model(sess)
+        print('with encoder')
+        myGAN.PROJ_ITER = 500
+        myClass.eval_model(sess, 0.05)
+        
+        print('without encoder')
+        myGAN.PROJ_ITER = 1200
+        myClass.eval_model(sess, 0.05, True, 10)

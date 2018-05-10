@@ -27,7 +27,7 @@ class LinfPGDAttack:
         for i in range(self.pgd_iter):
             feed_dict = {x_in:x, y_in:y}
             if( plc_zin != None ): feed_dict[plc_zin] = z_in
-                
+
             grad = sess.run(self.grad, feed_dict=feed_dict)
 
             x += self.a * np.sign(grad)
@@ -120,6 +120,6 @@ def fgm(x, preds, y=None, eps=0.3, ord=np.inf, clip_min=None, clip_max=None, tar
     
     return adv_x
 
-def get_adv_dataset(sess, logits, x, y, x_test, y_test):
-    return sess.run(fgm(x, logits, eps=0.3, ord=np.inf, clip_min=0, clip_max=1, targeted=False),
+def get_adv_dataset(sess, logits, x, y, x_test, y_test, eps=0.2, ord=np.inf):
+    return sess.run(fgm(x, logits, eps=eps, ord=ord, clip_min=0, clip_max=1, targeted=False),
                     feed_dict={x: x_test, y: y_test})

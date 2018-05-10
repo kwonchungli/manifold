@@ -35,7 +35,7 @@ def CelebA_load(label_data = None, image_paths = None, batch_size = 64, isTrain=
     else:
         index = 1 + tot_len - test_num + np.random.choice(test_num, batch_size, False)
     
-    images = np.array([image_load_helpers.get_image(image_paths[i], 108).reshape([64*64*3]) for i in index])/255.
+    images = np.array([image_load_helpers.get_image(image_paths[i], 128).reshape([64*64*3]) for i in index])/255.
     labels = label_data[index-1]
     
     return images, labels
@@ -61,6 +61,40 @@ def cifar10_load():
         batch_data = pickle.load(file_handle)
         batch_data['data'] = (batch_data['data'] / 255.0)
         return np.vstack(data), np.concatenate(targets), batch_data['data'], batch_data['labels']
+
+    
+def load_fmnist(path, kind='train'):
+    import os
+    import gzip
+    import numpy as np
+
+    """Load MNIST data from `path`"""
+    labels_path = os.path.join(path,
+                               '%s-labels-idx1-ubyte.gz'
+                               % kind)
+    images_path = os.path.join(path,
+                               '%s-images-idx3-ubyte.gz'
+                               % kind)
+
+    with gzip.open(labels_path, 'rb') as lbpath:
+        labels = np.frombuffer(lbpath.read(), dtype=np.uint8,
+                               offset=8)
+
+    with gzip.open(images_path, 'rb') as imgpath:
+        images = np.frombuffer(imgpath.read(), dtype=np.uint8,
+                               offset=16).reshape(len(labels), 784) / 255.0
+
+    return images, labels
+
+def F_MNIST_load():
+    tr_image, tr_label = load_fmnist('./data/f_mnist/', 'train')
+    ts_image, ts_label = load_fmnist('./data/f_mnist/', 't10k')
+    
+    #shuffle(tr_image, tr_label)
+    #shuffle(ts_image, ts_label)
+
+    return (tr_image, tr_label, ts_image, ts_label)
+
 
 def MNIST_load():
     filepath = './data/mnist.pkl.gz'
@@ -89,7 +123,7 @@ def LeakyReLU(x, alpha=0.1):
 def save_images(X, save_path):
     # [0, 1] -> [0,255]
     if isinstance(X.flatten()[0], np.floating):
-        X = (255.99*X).astype('uint8')
+        X = (255.*X).astype('uint8')
 
     n_samples = X.shape[0]
     rows = int(np.sqrt(n_samples))
@@ -182,7 +216,7 @@ def dynamic_load_dataset(batch_size, load_func):
     train_len = tot_len - test_len
     
     def train_epoch():
-        i = 0
+        i = np.random.randint(0, batch_size)
         while(i + batch_size < train_len):
             data, label = load_func(label_data, image_paths, batch_size, isTrain=True)
             yield data, label
@@ -205,8 +239,7 @@ def load_dataset(batch_size, load_func, dynamic_load = False):
 
     def train_epoch():
         tot_len = train_data.shape[0]
-        i = 0
-        #i = np.random.randint(0, batch_size)
+        i = np.random.randint(0, batch_size)
         while(i + batch_size < tot_len):
             yield (np.copy(train_data[i:i+batch_size, :]), np.copy(train_target[i:i+batch_size]))
             i = i + batch_size

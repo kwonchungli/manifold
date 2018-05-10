@@ -5,6 +5,7 @@ slim = tf.contrib.slim
 import tflib as lib
 import tflib.ops.linear as linear
 import tflib.ops.conv2d as conv2d
+import tflib.ops.layernorm as layernorm
 import tflib.ops.batchnorm as batchnorm
 import tflib.ops.deconv2d as deconv2d
 
@@ -124,20 +125,15 @@ class WGAN_Swiss(WGAN):
 
 class WGAN_MNIST(WGAN):
     def define_default_param(self):
-        self.BATCH_SIZE = 128
-        self.ITERS = 50001
+        self.BATCH_SIZE = 64
+        self.ITERS = 10001
         self.CRITIC_ITERS = 5
-        self.PROJ_ITER = 150
+        self.PROJ_ITER = 500
         self.PROJ_BATCH_SIZE = 100
         
     def define_data_dir(self):
-        self.MODEL_DIRECTORY = "./model_WGAN/MNIST/"
-        
-    def __init__(self):
         self.data_func = utils.MNIST_load
-        self.define_data_dir()
-
-        super(WGAN_MNIST, self).__init__()
+        self.MODEL_DIRECTORY = "./model_WGAN/MNIST_lt3/"
         
     def noise_gen(self, noise_size):
         return np.random.normal(size=noise_size).astype('float32')
@@ -206,7 +202,7 @@ class WGAN_MNIST(WGAN):
         utils.save_images(samples.reshape(n_samples, 28, 28), filename)
         
     def get_latent_dim(self):
-        return 15
+        return 50
     def get_image_dim(self):
         return 784
     
@@ -215,120 +211,122 @@ class WGAN_MNIST(WGAN):
 ##########################################################################
 class WGAN_MNIST_V2(WGAN_MNIST):
     def define_data_dir(self):
-        self.MODEL_DIRECTORY = "./model_WGAN/MNIST_lt3/"
+        self.data_func = utils.MNIST_load
+        self.MODEL_DIRECTORY = "./model_WGAN/MNIST_V2/"
         
     def get_latent_dim(self):
-        return 50
-    
-########################################################################3
-class WGAN_CelebA(WGAN):
-    def define_default_param(self):
-        # self.BATCH_SIZE = 128
-        self.BATCH_SIZE = 25
-        self.ITERS = 50001
-        self.CRITIC_ITERS = 5
-        self.PROJ_ITER = 150
-        self.PROJ_BATCH_SIZE = 25
-        
-    def define_data_dir(self):
-        # self.MODEL_DIRECTORY = "./model_WGAN/CelebA/"
-        self.MODEL_DIRECTORY = "./model_WGAN/CelebA/"
-        
-    def restore_session(self, sess):
-        # self.saver.restore(sess, './PreModel/Dimakis_Models/Celeb_A/data/CelebA_gen/model.ckpt-102951')
-        self.saver.restore(sess, './pretrained_models/Celeb_A/data/CelebA_gen/model.ckpt-102951')
-
-    def __init__(self):
-        self.data_func = utils.CelebA_load
-        self.define_data_dir()
-
-        super(WGAN_CelebA, self).__init__()
-        
-    def noise_gen(self, noise_size):
-        return np.random.normal(size=noise_size).astype('float32')
-        #return np.random.uniform(0, 10, size=noise_size).astype('float32')
-    
-    def get_train_gen(self, sess, num_epochs = 10):
-        train_gen, _, _ = utils.load_dataset(self.BATCH_SIZE, self.data_func, True)
-        return utils.batch_gen(train_gen, True, 2, num_epochs)
-
-    def get_test_gen(self, sess):
-        _, _, test_gen = utils.load_dataset(self.BATCH_SIZE, self.data_func, True)
-        return utils.batch_gen(test_gen, True, 2, 1)
-
-    # def get_train_gen(self, sess):
-    #     import data_loader as dl
-    #     import PIL
-    #     paths = dl.get_loader('./data/CelebA', self.BATCH_SIZE, 64, 'NHWC', 'train')
-        
-    #     def batch_gen(use_one_hot_encoding=False, out_dim=-1, num_iter=-1):
-    #         st, it = 0, 0
-    #         batch_x = np.zeros((self.BATCH_SIZE, self.get_image_dim()))
-    #         crop = (50, 25, 128, 160)
-    #         while (it < num_iter) or (num_iter < 0):
-    #             it = it + 1
-                
-    #             for i in range(0, self.BATCH_SIZE):
-    #                 img = PIL.Image.open(paths[st + i])
-    #                 img = img.crop(crop)
-    #                 img = img.resize((64, 64))
-    #                 img = np.asarray(img, dtype=np.float32) / 255.
-                    
-    #                 batch_x[i] = img.reshape(-1, self.get_image_dim())
-                
-    #             st = (st + self.BATCH_SIZE) % (len(paths) - self.BATCH_SIZE)
-    #             yield batch_x, None
-
-    #     return batch_gen()
-    
-    def train(self, session):
-        print 'Bad Thing Happens!!!'
-        Hahahahahahahahahaha
+        return 128
     
     # G(z)
     def build_generator(self, z, reuse=False):
-        hidden_num, output_num, repeat_num, data_format = 128, 3, 4, 'NCHW'
-        
-        with tf.variable_scope("G", reuse=reuse) as vs:
-            num_output = int(np.prod([8, 8, hidden_num]))
-            x = slim.fully_connected(z, num_output, activation_fn=None)
-            x = reshape(x, 8, 8, hidden_num, data_format)
-            for idx in range(repeat_num):
-                x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-                x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-                if idx < repeat_num - 1:
-                    x = upscale(x, 2, data_format)
-            out = slim.conv2d(x, 3, 3, 1, activation_fn=None, data_format=data_format)
-            out = tf.nn.sigmoid(out)
-            out = tf.transpose(out, [0, 2, 3, 1])
+        with tf.variable_scope('Generator', reuse=reuse) as vs:
+            output = tf.layers.dense(z, 4096)
+            output = tf.nn.relu(output)
+            
+            output = tf.reshape(output, [-1, 16, 16, 16])
+            output = tf.layers.conv2d_transpose(output, 256, 5, 1)
+            output = tf.nn.relu(output)
+            
+            output = tf.layers.conv2d_transpose(output, 128, 5, 1)
+            output = tf.nn.relu(output)
+            
+            output = tf.layers.conv2d_transpose(output, 1, 5, 1)
+            output = tf.nn.sigmoid(output)
             
         variables = tf.contrib.framework.get_variables(vs)
-        out = tf.reshape(out, [-1, self.get_image_dim()])
-        return out, variables
+        return tf.reshape(output, [-1, self.get_image_dim()]), variables
+    
+class WGAN_MNIST_DIM2(WGAN_MNIST_V2):
+    def get_latent_dim(self):
+        return 2
+    
+    def define_data_dir(self):
+        self.data_func = utils.MNIST_load
+        self.MODEL_DIRECTORY = "./model_WGAN/MNIST/"
+        
+class WGAN_F_MNIST(WGAN_MNIST_V2):
+    def define_default_param(self):
+        self.BATCH_SIZE = 32
+        self.ITERS = 100001
+        self.CRITIC_ITERS = 5
+        self.PROJ_ITER = 1000
+        self.PROJ_BATCH_SIZE = 10
+        
+    def define_data_dir(self):
+        self.data_func = utils.F_MNIST_load
+        self.MODEL_DIRECTORY = "./model_WGAN/F_MNIST/"
+    
+    
+########################################################################3
+################### CIFAR10 ##############################################
+#########################################################################
+class WGAN_CIFAR10(WGAN):
+    def define_default_param(self):
+        self.BATCH_SIZE = 100
+        self.ITERS = 50001
+        self.CRITIC_ITERS = 5
+        self.PROJ_ITER = 600
+        self.PROJ_BATCH_SIZE = 100
+        
+    def define_data_dir(self):
+        self.data_func = utils.cifar10_load
+        self.MODEL_DIRECTORY = "./model_WGAN/CIFAR10/"
+        
+    def noise_gen(self, noise_size):
+        return np.random.normal(0, 1, size=noise_size).astype('float32')
+    
+    # G(z)
+    def build_generator(self, z, reuse=False):
+        DIM = 64
+        with tf.variable_scope('Generator', reuse=reuse) as vs:
+            output = lib.ops.linear.Linear('Generator.Input', 128, 4*4*4*DIM, z)
+            output = lib.ops.batchnorm.Batchnorm('Generator.BN1', [0], output)
+            output = tf.nn.relu(output)
+            output = tf.reshape(output, [-1, 4*DIM, 4, 4])
 
-    # D(x)
-    def define_loss(self):
-        return 0, 0, 0
+            output = lib.ops.deconv2d.Deconv2D('Generator.2', 4*DIM, 2*DIM, 5, output)
+            output = lib.ops.batchnorm.Batchnorm('Generator.BN2', [0,2,3], output)
+            output = tf.nn.relu(output)
+
+            output = lib.ops.deconv2d.Deconv2D('Generator.3', 2*DIM, DIM, 5, output)
+            output = lib.ops.batchnorm.Batchnorm('Generator.BN3', [0,2,3], output)
+            output = tf.nn.relu(output)
+
+            output = lib.ops.deconv2d.Deconv2D('Generator.5', DIM, 3, 5, output)
+            output = tf.tanh(output)
+            
+        variables = tf.contrib.framework.get_variables(vs)
+        return tf.reshape(output, [-1, self.get_image_dim()]), variables
     
     def build_discriminator(self, x, reuse=False):
-        with tf.variable_scope('Dummy', reuse=reuse) as vs:
-            output = tf.reshape(x, [-1, 64, 64, 3])
+        dim = 64
+        nonlinearity=tf.nn.relu
+        output = tf.reshape(x, [-1, 64, 64, 3])
+        output = tf.transpose(output, perm=[0, 3, 1, 2])
 
-            output = tf.layers.conv2d(output, 128, 4, strides = 2)
-            output = utils.LeakyReLU(output)
-            
-            output = tf.layers.conv2d(output, 32, 3, strides = 2)
-            output = utils.LeakyReLU(output)
-            
-            output = tf.layers.conv2d(output, 16, 2, strides = 1)
-            output = utils.LeakyReLU(output)
-            
-            output = tf.reshape(output, [-1, 3136])
-            output = tf.layers.dense(output, 256)
+        lib.ops.conv2d.set_weights_stdev(0.02)
+        lib.ops.deconv2d.set_weights_stdev(0.02)
+        lib.ops.linear.set_weights_stdev(0.02)
 
-            output = utils.LeakyReLU(output)
-            output = tf.layers.dense(output, 1)
-           
+        output = lib.ops.conv2d.Conv2D('Discriminator.1', 3, dim, 5, output, stride=2)
+        output = nonlinearity(output)
+
+        output = lib.ops.conv2d.Conv2D('Discriminator.2', dim, 2*dim, 5, output, stride=2)
+        output = nonlinearity(output)
+
+        output = lib.ops.conv2d.Conv2D('Discriminator.3', 2*dim, 4*dim, 5, output, stride=2)
+        output = nonlinearity(output)
+
+        output = lib.ops.conv2d.Conv2D('Discriminator.4', 4*dim, 8*dim, 5, output, stride=2)
+        output = nonlinearity(output)
+
+        output = tf.reshape(output, [-1, 4*4*8*dim])
+        output = lib.ops.linear.Linear('Discriminator.Output', 4*4*8*dim, 1, output)
+
+        lib.ops.conv2d.unset_weights_stdev()
+        lib.ops.deconv2d.unset_weights_stdev()
+        lib.ops.linear.unset_weights_stdev()
+
         return tf.reshape(output, [-1])
     
     def test_generate(self, sess, n_samples = 128, filename='images/samples.png'):
@@ -345,14 +343,14 @@ class WGAN_CelebA(WGAN):
 ###########################################################################
 ##########################################################################
 
-class WGAN_MNIST_MINMAX(WGAN_MNIST):
-    def define_default_param(self):
-        self.BATCH_SIZE = 128
-        self.ITERS = 50001
-        self.CRITIC_ITERS = 5
-        self.PROJ_ITER = 150
-        self.PROJ_BATCH_SIZE = 128
-
         
         
+        
+########################################################3 
+### CELEBA
+########################################################3
+class WGAN_CelebA(WGAN_CIFAR10):
+    def define_data_dir(self):
+        self.data_func = utils.CelebA_load
+        self.MODEL_DIRECTORY = "./model_WGAN/CelebA/"
         

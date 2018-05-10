@@ -8,6 +8,7 @@ import numpy as np
 import sklearn.datasets
 import tensorflow as tf
 import utils
+import os.path
 
 class GAN(object):
     def define_default_param(self):
@@ -16,10 +17,17 @@ class GAN(object):
         self.PROJ_BATCH_SIZE = 5
         self.ITERS = 20001 # How many generator iterations to train for
         self.CRITIC_ITERS = 10 # For WGAN and WGAN-GP, number of critic iters per gen iter
-
+    
+    def define_data_dir(self):
+        pass
+    
     def __init__(self):
+        self.define_data_dir()
         self.define_default_param()
 
+        if not os.path.exists(self.MODEL_DIRECTORY):
+            os.makedirs(self.MODEL_DIRECTORY)
+            
         self.z_in = tf.placeholder(tf.float32, shape=[None, self.get_latent_dim()], name='latent_variable')
         self.data = tf.placeholder(tf.float32, shape=[None, self.get_image_dim()])
 
@@ -73,12 +81,12 @@ class GAN(object):
         self.z_hat = tf.get_variable('z_hat', shape=[self.PROJ_BATCH_SIZE, self.get_latent_dim()], dtype=tf.float32)
         self.out, _ = self.build_generator(self.z_hat, True)
 
-        self.proj_loss = tf.reduce_mean(tf.square(self.out - self.test_x))
+        self.proj_loss = tf.reduce_mean(tf.reduce_sum(tf.squared_difference(self.out, self.test_x), axis=1))
         self.proj_step = tf.Variable(0)
         learning_rate = tf.train.exponential_decay(
-                1e-2,  # Base learning rate.
+                5e-2,  # Base learning rate.
                 self.proj_step,  # Current index into the dataset.
-                1000,  # Decay step.
+                100,  # Decay step.
                 0.95,  # Decay rate.
                 staircase=True)
 
@@ -88,19 +96,21 @@ class GAN(object):
             beta2=0.9
         ).minimize(self.proj_loss, var_list=self.z_hat, global_step=self.proj_step)
 
-    def find_proj(self, sess, batch_x, z0):
+    def find_proj(self, sess, batch_x, z0, random_init = False, random_iter = 1):
         cost, iterat = 1.0, 0
-        min_cost = 10000
+        min_cost = 100000000.
 
-        while( iterat < 1 ):
+        while( iterat < random_iter ):
+            if( random_init ):
+                z0 = np.random.normal(0, 1, size=(self.PROJ_BATCH_SIZE, self.get_latent_dim()))
+                
             sess.run(self.z_hat.assign(z0))
-            #sess.run(self.z_hat.assign(np.random.normal(0, 1, size=(self.PROJ_BATCH_SIZE, self.get_latent_dim()))))
             sess.run(self.proj_step.assign(0))
 
             for i in range(self.PROJ_ITER):
                 _, cost = sess.run([self.proj_op, self.proj_loss], feed_dict={self.test_x: batch_x})
-                if( i % 50 == 0 ):
-                    print ('Projection Cost is :' , cost , 'z diff : ', np.linalg.norm(sess.run(self.z_hat[0]) - z0[0]))
+                #if( i % 50 == 0 ):
+                #    print ('Projection Cost is :' , cost , 'z diff : ', np.linalg.norm(sess.run(self.z_hat[0]) - z0[0]))
                     
             if( cost < min_cost ):
                 min_cost = cost
@@ -178,8 +188,7 @@ class WGAN(GAN):
 
     def train(self, session):
         # Dataset iterator
-        train_gen, _, _ = utils.load_dataset(self.BATCH_SIZE, self.data_func)
-        train_gen = utils.batch_gen(train_gen)
+        train_gen = self.get_train_gen(session)
 
         # cache variables
         disc_cost, gen_train_op, disc_train_op = self.disc_cost, self.gen_train_op, self.disc_train_op
