@@ -341,3 +341,12 @@ class WGAN_MNIST_MINMAX(WGAN_MNIST):
         self.CRITIC_ITERS = 5
         self.PROJ_ITER = 150
         self.PROJ_BATCH_SIZE = 128
+
+
+##########################################################################
+class WGAN_MNIST_V3(WGAN_MNIST):
+    def define_data_dir(self):
+        self.MODEL_DIRECTORY = "./model_WGAN/MNIST_test/"
+
+    def get_latent_dim(self):
+        return 2

@@ -203,4 +203,12 @@ class FIT_AE_MNIST_MINMAX(FIT_AE_MINMAX):
         return mu, y
 
 
+##########################################################################
+class FIT_AE_MNIST_V3(FIT_AE_MNIST):
+    def define_data_dir(self):
+        self.MODEL_DIRECTORY = "./model_AE/MNIST_test/"
+
+    def get_latent_dim(self):
+        return 2
+
 

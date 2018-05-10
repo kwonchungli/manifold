@@ -185,6 +185,7 @@ class WGAN(GAN):
         disc_cost, gen_train_op, disc_train_op = self.disc_cost, self.gen_train_op, self.disc_train_op
 
         # Train loop
+        print('got to training loop')
         noise_size = (self.BATCH_SIZE, self.get_latent_dim())
         start_time = time.time()
         for iteration in range(self.ITERS):
@@ -203,10 +204,10 @@ class WGAN(GAN):
                         self.data: _data}
                 )
 
-                if( iteration % 100 == 10 ):
+                if( iteration % 100 == 1 ):
                     print 'disc_cost: ', -_disc_cost
 
-            if( iteration % 100 == 10 ):
+            if( iteration % 100 == 1 ):
                 print '---------------'
                 elapsed_time = time.time() - start_time
                 avg_time = elapsed_time/iteration
@@ -219,7 +220,7 @@ class WGAN(GAN):
                 print '-------------------------------------'
 
             # Calculate dev loss and generate samples every 100 iters
-            if iteration % 100 == 10:
+            if iteration % 100 == 1:
                 self.test_generate(session, filename='images/train_samples.png')
 
             # Checkpoint
