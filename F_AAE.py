@@ -84,7 +84,7 @@ class F_AAE_MNIST(FIT_AE_MNIST_V2):
                 
             # Calculate dev loss and generate samples every 100 iters
             if iteration % 100 == 10:
-                self.exGAN.test_generate(session, filename='images/train_samples.png')
+                self.exGAN.test_generate(session, filename='images/train_samples.png',print_flag=True)
                 self.test_generate(session, train_gen, filename='images/train_samples.png')
 
             # Checkpoint
@@ -173,7 +173,7 @@ class F_AAE_Swiss(FIT_AE_Swiss):
                 
             # Calculate dev loss and generate samples every 100 iters
             if iteration % 100 == 10:
-                self.exGAN.test_generate(session, filename='images/train_samples.png')
+                self.exGAN.test_generate(session, filename='images/train_samples.png',print_flag=True)
                 self.test_generate(session, train_gen, filename='images/train_samples.png')
 
             # Checkpoint

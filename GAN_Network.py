@@ -195,11 +195,13 @@ class WGAN_MNIST(WGAN):
         variables = tf.contrib.framework.get_variables(vs)
         return tf.reshape(output, [-1])
     
-    def test_generate(self, sess, n_samples = 512, filename='images/samples.png'):
+    def test_generate(self, sess, n_samples = 512, filename='images/samples.png', print_flag=True):
         noises = self.noise_gen((n_samples,self.get_latent_dim()))
         samples = sess.run(self.Generator, feed_dict={self.z_in: noises})
-        
-        utils.save_images(samples.reshape(n_samples, 28, 28), filename)
+
+        if print_flag:
+            utils.save_images(samples.reshape(n_samples, 28, 28), filename)
+        return samples
         
     def get_latent_dim(self):
         return 50
@@ -242,7 +244,14 @@ class WGAN_MNIST_DIM2(WGAN_MNIST_V2):
     
     def define_data_dir(self):
         self.data_func = utils.MNIST_load
-        self.MODEL_DIRECTORY = "./model_WGAN/MNIST/"
+        self.MODEL_DIRECTORY = "./model_WGAN/MNIST_DIM2/"
+
+    def define_default_param(self):
+        self.BATCH_SIZE = 64
+        self.ITERS = 10001
+        self.CRITIC_ITERS = 5
+        self.PROJ_ITER = 100
+        self.PROJ_BATCH_SIZE = 5
         
 class WGAN_F_MNIST(WGAN_MNIST_V2):
     def define_default_param(self):

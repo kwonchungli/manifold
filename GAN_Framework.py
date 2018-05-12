@@ -109,7 +109,7 @@ class GAN(object):
 
             for i in range(self.PROJ_ITER):
                 _, cost = sess.run([self.proj_op, self.proj_loss], feed_dict={self.test_x: batch_x})
-                #if( i % 50 == 0 ):
+                # if( i % 50 == 0 ):
                 #    print ('Projection Cost is :' , cost , 'z diff : ', np.linalg.norm(sess.run(self.z_hat[0]) - z0[0]))
                     
             if( cost < min_cost ):
@@ -229,7 +229,7 @@ class WGAN(GAN):
 
             # Calculate dev loss and generate samples every 100 iters
             if iteration % 100 == 10:
-                self.test_generate(session, filename='images/train_samples.png')
+                self.test_generate(session, filename='images/train_samples.png', print_flag=True)
 
             # Checkpoint
             if( iteration % 1000 == 999 ):
